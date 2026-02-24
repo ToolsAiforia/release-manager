@@ -45,6 +45,33 @@
     background: #3d4255;
 }
 
+/* ── Navigation sidebar ──────────────────────── */
+
+.nav-sidebar {
+    transition: width 0.15s ease;
+}
+
+.nav-item .nav-tooltip {
+    display: none;
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    background: #1f2937;
+    color: #f3f4f6;
+    z-index: 50;
+    pointer-events: none;
+}
+
+.nav-item:hover .nav-tooltip {
+    display: block;
+}
+
 /* ── Export dropdown ──────────────────────────── */
 
 .export-dropdown {
@@ -95,6 +122,53 @@
 }
 
 @keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── HTMX swap transition ───────────────────── */
+
+.htmx-swapping {
+    opacity: 0;
+    transition: opacity 0.15s ease-out;
+}
+
+/* ── Tabs ────────────────────────────────────── */
+
+.tab-btn {
+    border-color: transparent;
+    color: #6b7280;
+}
+
+.tab-btn:hover {
+    color: #374151;
+}
+
+.tab-btn.active {
+    border-color: #6366f1;
+    color: #4f46e5;
+}
+
+.dark .tab-btn {
+    color: #6b7280;
+}
+
+.dark .tab-btn:hover {
+    color: #d1d5db;
+}
+
+.dark .tab-btn.active {
+    border-color: #818cf8;
+    color: #a5b4fc;
+}
+
+/* ── Report entrance animation ──────────────── */
+
+.report-enter {
+    animation: reportSlideIn 0.3s ease-out;
+}
+
+@keyframes reportSlideIn {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
 }

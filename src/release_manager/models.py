@@ -45,3 +45,10 @@ class ReleaseReport(BaseModel):
     root_dir: str
     repos: list[RepoReport] = Field(default_factory=list)
     all_linear_keys: list[str] = Field(default_factory=list)
+
+
+class Release(BaseModel):
+    id: str
+    name: str
+    created_at: datetime = Field(default_factory=datetime.now)
+    report: ReleaseReport

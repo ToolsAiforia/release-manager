@@ -14,7 +14,6 @@ Files you do NOT own (read-only reference):
 - `src/release_manager/static/htmx.min.js` — vendor file, do not modify
 - `src/release_manager/models.py` — data shapes returned by API
 - `src/release_manager/api/routes.py` — endpoint contracts
-f
 ## Architecture Rules
 
 ### No Build Step
@@ -25,11 +24,13 @@ f
 ### Template Structure
 ```
 templates/
-├── base.html              # <html>, <head>, CSS link, HTMX script, container
-├── index.html             # Extends base.html. All page content + <script> block
+├── base.html              # <html>, <head>, nav sidebar, toast, theme toggle, global JS
+├── index.html             # Repositories page (scan + repo table + page JS)
+├── draft.html             # Draft page (report editing)
+├── releases.html          # Releases page (release history)
 └── partials/
-    ├── repo_list.html     # Standalone HTML fragment (no base extension)
-    └── report_table.html  # Standalone HTML fragment (no base extension)
+    ├── repo_list.html     # HTMX fragment: repo table
+    └── report_table.html  # HTMX fragment: report
 ```
 
 **Full pages** extend `base.html` with `{% extends "base.html" %}` and `{% block content %}`.
@@ -56,34 +57,43 @@ Use **vanilla JS** (`fetch()` + DOM manipulation) for:
 
 ### CSS Architecture
 
-- Single file: `static/style.css`.
-- CSS custom properties in `:root` for colors (--bg, --surface, --border, --text, --primary, etc.).
-- No CSS framework. No Tailwind. No CSS-in-JS.
-- Class naming: descriptive, hyphenated (`.btn-primary`, `.repo-section`, `.tag-key`).
-- BEM-like structure but not strict BEM.
+- **Tailwind CSS** via CDN `<script>` in `base.html` — use utility classes directly in HTML.
+- Tailwind config (custom colors, fonts) lives in `base.html` `<script>` block.
+- `darkMode: 'class'` — toggle via `.dark` class on `<html>`.
+- Custom styles only in `static/style.css` for things Tailwind can't handle:
+  - HTMX indicators/transitions, scrollbar styling, nav tooltips, animations, collapse, export dropdown.
+- Color scheme: gray-50/white (light), `#0f1117`/`#1a1d26` (dark).
+- Accent color: indigo-500.
 
-**Existing CSS classes you must reuse** (do not create duplicates):
-- Layout: `.container`, `.section`, `.section-header`
-- Buttons: `.btn`, `.btn-primary`, `.btn-outline`, `.btn-success`, `.btn-sm`, `.btn-group`
-- Tables: standard `table`, `th`, `td` styles (no custom classes needed)
-- Tags: `.tag` (gray), `.tag-key` (blue, for Linear keys)
-- States: `.status-bar`, `.status-bar.success`, `.status-bar.error`
-- Report: `.repo-section`, `.repo-meta`, `.commit-msg`, `.linear-keys`
-- Indicators: `.htmx-indicator`, `.dirty-badge`
-- Summary: `.summary-bar`, `.keys-list`
-- Empty: `.empty-state`
+### Layout
+
+- Vertical icon nav sidebar (`<nav class="nav-sidebar w-16">`) — logo, page links, theme toggle at bottom.
+- Main content area (`<main class="flex-1 overflow-y-auto">`).
+- Content pages use `max-w-6xl mx-auto` with `p-6` padding.
+- Nav items highlight active page via `active_page` Jinja2 variable.
+- Toast container is fixed, defined in `base.html`.
+- Global JS (toast, theme toggle) lives in `base.html`.
+
+### Multi-Page Structure
+
+- `/` — Repositories page (`index.html`): scan directory, repo table, collect commits
+- `/draft` — Draft page: report editing
+- `/releases` — Releases page: release history
 
 ### Jinja2 Variables
 
-Available in `index.html`:
+Available in all pages (set in `base.html`):
 - `request` — FastAPI Request object
+- `active_page` — string identifying the current page (`"repos"`, `"draft"`, `"releases"`)
+
+Available in `index.html`:
 - `default_root_dir` — string, default path from settings
 
 Available in `partials/repo_list.html`:
-- `request`, `repos` (list of RepoInfo), `root_dir`
+- `request`, `repos` (list of RepoInfo), `repo_tags` (dict of repo name → list of TagInfo)
 
 Available in `partials/report_table.html`:
-- `request`, `report` (ReleaseReport or None)
+- `request`, `report` (ReleaseReport or None), `error` (string or None)
 
 ### API Response Shapes (for JS rendering)
 

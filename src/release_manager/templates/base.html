@@ -42,21 +42,52 @@
     </script>
 </head>
 <body class="bg-gray-50 dark:bg-[#0f1117] text-gray-900 dark:text-gray-100 font-sans min-h-screen antialiased transition-colors duration-200">
-    <header class="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#1a1d26]/80 backdrop-blur-sm">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
-                    </svg>
-                </div>
-                <div>
-                    <h1 class="text-sm font-semibold leading-tight">Release Manager</h1>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-tight">Build release notes from git repositories</p>
-                </div>
+    <div class="flex h-screen">
+        <!-- Navigation Sidebar -->
+        <nav class="nav-sidebar w-16 shrink-0 flex flex-col items-center py-4 border-r border-gray-200 dark:border-gray-800
+                    bg-white dark:bg-[#1a1d26]">
+            <!-- Logo -->
+            <div class="w-9 h-9 rounded-xl bg-indigo-500 flex items-center justify-center mb-6">
+                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
             </div>
+
+            <!-- Nav Items -->
+            <div class="flex flex-col items-center gap-1 flex-1">
+                <a href="/"
+                   class="nav-item group relative w-10 h-10 flex items-center justify-center rounded-lg transition-colors
+                          {% if active_page == 'repos' %}bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300{% endif %}"
+                   title="Repositories">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/>
+                    </svg>
+                    <span class="nav-tooltip">Repositories</span>
+                </a>
+                <a href="/draft"
+                   class="nav-item group relative w-10 h-10 flex items-center justify-center rounded-lg transition-colors
+                          {% if active_page == 'draft' %}bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300{% endif %}"
+                   title="Draft">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
+                    </svg>
+                    <span class="nav-tooltip">Draft</span>
+                </a>
+                <a href="/releases"
+                   class="nav-item group relative w-10 h-10 flex items-center justify-center rounded-lg transition-colors
+                          {% if active_page == 'releases' %}bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400{% else %}text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300{% endif %}"
+                   title="Releases">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/>
+                    </svg>
+                    <span class="nav-tooltip">Releases</span>
+                </a>
+            </div>
+
+            <!-- Theme toggle at bottom -->
             <button id="theme-toggle" type="button"
-                    class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    class="w-10 h-10 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-500
+                           hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     aria-label="Toggle theme">
                 <svg id="icon-sun" class="w-5 h-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
@@ -65,12 +96,16 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
                 </svg>
             </button>
-        </div>
-    </header>
+        </nav>
 
-    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-        {% block content %}{% endblock %}
-    </main>
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm"></div>
 
     <script>
         document.getElementById('theme-toggle').addEventListener('click', function() {
@@ -78,6 +113,22 @@
             html.classList.toggle('dark');
             localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
         });
+
+        const toastStyles = {
+            success: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300',
+            warning: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-300',
+            error:   'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-300',
+        };
+
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `px-4 py-3 rounded-lg shadow-lg border text-sm animate-fadeIn ${toastStyles[type] || toastStyles.success}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 4000);
+            setTimeout(() => toast.remove(), 4300);
+        }
     </script>
 </body>
 </html>

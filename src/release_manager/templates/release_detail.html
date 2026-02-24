@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-6 max-w-6xl mx-auto">
+
+{% if release %}
+<div class="report-enter">
+    <!-- Page header -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <a href="/releases"
+               class="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800
+                      hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+               title="Back to releases">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ release.name }}</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                    Created {{ release.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    &middot; {{ release.report.repos|length }} component{{ 's' if release.report.repos|length != 1 else '' }}
+                    &middot; {{ release.report.all_linear_keys|length }} task{{ 's' if release.report.all_linear_keys|length != 1 else '' }}
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <!-- Export -->
+            <div id="export-dropdown" class="export-dropdown">
+                <button onclick="toggleExportMenu()"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
+                               border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1d26]
+                               text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#252830]
+                               transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                    </svg>
+                    Export
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                    </svg>
+                </button>
+                <div class="export-menu rounded-lg border border-gray-200 dark:border-gray-700
+                            bg-white dark:bg-[#1a1d26] shadow-lg py-1">
+                    <a href="/api/releases/{{ release.id }}/export/csv"
+                       class="block px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300
+                              hover:bg-gray-50 dark:hover:bg-[#252830] transition-colors">
+                        CSV
+                    </a>
+                    <a href="/api/releases/{{ release.id }}/export/markdown"
+                       class="block px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300
+                              hover:bg-gray-50 dark:hover:bg-[#252830] transition-colors">
+                        Markdown
+                    </a>
+                    <a href="/api/releases/{{ release.id }}/export/json"
+                       class="block px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300
+                              hover:bg-gray-50 dark:hover:bg-[#252830] transition-colors">
+                        JSON
+                    </a>
+                </div>
+            </div>
+
+            <!-- Delete -->
+            <button onclick="deleteRelease('{{ release.id }}', '{{ release.name }}')"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
+                           border border-red-200 dark:border-red-500/30 bg-white dark:bg-[#1a1d26]
+                           text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10
+                           transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                </svg>
+                Delete
+            </button>
+        </div>
+    </div>
+
+    {% set report = release.report %}
+    {% include "partials/report_content.html" %}
+</div>
+
+{% else %}
+<!-- Not found -->
+<div class="flex flex-col items-center justify-center py-24">
+    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">Release not found</h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">This release may have been deleted.</p>
+    <a href="/releases"
+       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg
+              text-white bg-indigo-500 hover:bg-indigo-600 transition-colors">
+        Back to Releases
+    </a>
+</div>
+{% endif %}
+
+</div>
+
+<script>
+function toggleExportMenu() {
+    document.getElementById('export-dropdown').classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+    const dd = document.getElementById('export-dropdown');
+    if (dd && !dd.contains(e.target)) dd.classList.remove('open');
+});
+
+async function deleteRelease(id, name) {
+    if (!confirm(`Delete release "${name}"?`)) return;
+    try {
+        const resp = await fetch(`/api/releases/${id}`, {method: 'DELETE'});
+        if (resp.ok) {
+            window.location.href = '/releases';
+        } else {
+            showToast('Failed to delete release', 'error');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+</script>
+{% endblock %}

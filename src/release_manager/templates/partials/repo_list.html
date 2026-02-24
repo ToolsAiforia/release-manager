@@ -1,42 +1,52 @@
 {% if repos %}
-<div class="mb-6">
-    <div class="flex items-center justify-between mb-3">
-        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Repositories</h2>
-        <div class="flex items-center gap-2">
-            <button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg
+<div>
+    <!-- Toolbar -->
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {{ repos|length }} repositories
+            </h2>
+            <button class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg
                            border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1d26]
-                           text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#252830]
+                           text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#252830]
                            transition-colors"
-                    onclick="document.querySelectorAll('.repo-row').forEach(r => loadTags(r.querySelector('.repo-cb').value))">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 004.5 9.75v7.5a2.25 2.25 0 002.25 2.25h7.5a2.25 2.25 0 002.25-2.25v-7.5a2.25 2.25 0 00-2.25-2.25h-.75m-6 3.75l3 3m0 0l3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 012.25 2.25v7.5a2.25 2.25 0 01-2.25 2.25h-7.5a2.25 2.25 0 01-2.25-2.25v-.75"/>
-                </svg>
-                Load All Tags
-            </button>
-            <button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg
-                           border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1d26]
-                           text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#252830]
-                           transition-colors"
-                    onclick="fetchAll(this)">
+                    hx-post="/partials/fetch-and-reload"
+                    hx-target="#repo-list"
+                    hx-include="#root_dir"
+                    hx-indicator="#fetch-all-spinner">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
                 </svg>
                 Fetch All
-            </button>
-            <button id="collect-btn"
-                    class="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg
-                           text-white bg-indigo-500 hover:bg-indigo-600 transition-colors
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                    onclick="collectCommits()">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-                </svg>
-                Collect Commits
+                <span id="fetch-all-spinner" class="htmx-indicator">
+                    <svg class="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </span>
             </button>
         </div>
+        <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg
+                       text-white bg-indigo-500 hover:bg-indigo-600 transition-colors
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                hx-post="/partials/collect-and-redirect"
+                hx-include="#root_dir, #repo-table"
+                hx-indicator="#collect-spinner">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+            Collect Commits
+            <span id="collect-spinner" class="htmx-indicator">
+                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </span>
+        </button>
     </div>
 
-    <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden shadow-sm">
+    <!-- Table -->
+    <div id="repo-table" class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden">
         <table class="w-full text-left">
             <thead>
                 <tr class="border-b border-gray-100 dark:border-gray-800">
@@ -46,74 +56,79 @@
                                       text-indigo-500 focus:ring-indigo-500/40 cursor-pointer
                                       bg-white dark:bg-[#0f1117]">
                     </th>
-                    <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Repository</th>
-                    <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Branch</th>
-                    <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">From Tag</th>
-                    <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">To Tag</th>
-                    <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 text-right">Actions</th>
+                    <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-transparent">
+                        Repository
+                    </th>
+                    <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-transparent">
+                        Branch
+                    </th>
+                    <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-transparent">
+                        From Tag
+                    </th>
+                    <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-transparent">
+                        To Tag
+                    </th>
+                    <th class="px-4 py-2.5 w-10 bg-gray-50/50 dark:bg-transparent"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                 {% for repo in repos %}
-                <tr class="repo-row hover:bg-gray-50/50 dark:hover:bg-[#252830]/50 transition-colors">
-                    <td class="px-4 py-2">
-                        <input type="checkbox" class="repo-cb" value="{{ repo.name }}" checked
+                {% set tags = repo_tags.get(repo.name, []) %}
+                <tr class="hover:bg-gray-50/50 dark:hover:bg-[#252830]/50 transition-colors">
+                    <td class="px-4 py-2.5">
+                        <input type="checkbox" class="repo-cb" name="selected_repos" value="{{ repo.name }}" checked
                                class="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600
                                       text-indigo-500 focus:ring-indigo-500/40 cursor-pointer
                                       bg-white dark:bg-[#0f1117]">
                     </td>
-                    <td class="px-4 py-2">
-                        <div class="flex items-center gap-1.5">
+                    <td class="px-4 py-2.5">
+                        <div class="flex items-center gap-2">
                             <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ repo.name }}</span>
                             {% if repo.has_uncommitted %}
-                            <span class="w-2 h-2 rounded-full bg-amber-400" title="Has uncommitted changes"></span>
+                            <span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" title="Has uncommitted changes"></span>
                             {% endif %}
                         </div>
                     </td>
-                    <td class="px-4 py-2">
-                        <span class="inline-flex px-2 py-0.5 text-xs font-mono rounded-md
-                                     bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    <td class="px-4 py-2.5">
+                        <span class="inline-flex px-2 py-0.5 text-[11px] font-mono rounded
+                                     bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                             {{ repo.current_branch }}
                         </span>
                     </td>
-                    <td class="px-4 py-2">
-                        <select id="from-{{ repo.name }}"
-                                class="w-full max-w-[160px] px-2 py-1 text-xs rounded-md border border-gray-200 dark:border-gray-700
-                                       bg-white dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
-                                       focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500">
+                    <td class="px-4 py-2.5">
+                        <select name="from_tag__{{ repo.name }}"
+                                class="w-full min-w-[160px] px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                                       bg-gray-50 dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
+                                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
                             <option value="">-- from --</option>
+                            {% for tag in tags %}
+                            <option value="{{ tag.name }}" {% if loop.index == 2 %}selected{% endif %}>
+                                {{ tag.name }}{% if tag.is_release %} *{% endif %}
+                            </option>
+                            {% endfor %}
                         </select>
                     </td>
-                    <td class="px-4 py-2">
-                        <select id="to-{{ repo.name }}"
-                                class="w-full max-w-[160px] px-2 py-1 text-xs rounded-md border border-gray-200 dark:border-gray-700
-                                       bg-white dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
-                                       focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500">
+                    <td class="px-4 py-2.5">
+                        <select name="to_tag__{{ repo.name }}"
+                                class="w-full min-w-[160px] px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                                       bg-gray-50 dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
+                                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
                             <option value="">-- to --</option>
+                            {% for tag in tags %}
+                            <option value="{{ tag.name }}" {% if loop.index == 1 %}selected{% endif %}>
+                                {{ tag.name }}{% if tag.is_release %} *{% endif %}
+                            </option>
+                            {% endfor %}
                         </select>
                     </td>
-                    <td class="px-4 py-2 text-right">
-                        <div class="inline-flex items-center gap-1">
-                            <button class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md
-                                           text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800
-                                           transition-colors"
-                                    onclick="loadTags('{{ repo.name }}')">
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/>
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z"/>
-                                </svg>
-                                Tags
-                            </button>
-                            <button class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md
-                                           text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800
-                                           transition-colors"
-                                    onclick="fetchRepo('{{ repo.name }}')">
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
-                                </svg>
-                                Fetch
-                            </button>
-                        </div>
+                    <td class="px-4 py-2.5">
+                        <button class="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300
+                                       hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                onclick="fetchRepo('{{ repo.name }}')" title="Fetch & Pull">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                            </svg>
+                        </button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -122,10 +137,10 @@
     </div>
 </div>
 {% else %}
-<div class="mb-6 text-center py-12">
+<div class="text-center py-16">
     <svg class="mx-auto w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
         <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/>
     </svg>
-    <p class="text-sm text-gray-400 dark:text-gray-500">No git repositories found in the specified directory.</p>
+    <p class="text-sm text-gray-400 dark:text-gray-500">No repositories found in this directory.</p>
 </div>
 {% endif %}
