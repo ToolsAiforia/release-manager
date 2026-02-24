@@ -1,0 +1,100 @@
+/* ── HTMX indicator ────────────────────────────── */
+
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: inline-flex;
+    align-items: center;
+}
+
+/* ── HTMX fragment transitions ────────────────── */
+
+.htmx-added {
+    animation: fadeIn 0.2s ease-out;
+}
+
+.htmx-settling {
+    animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Custom scrollbar (dark mode) ─────────────── */
+
+.dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+    background: #1a1d26;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #2d3140;
+    border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #3d4255;
+}
+
+/* ── Export dropdown ──────────────────────────── */
+
+.export-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.export-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    min-width: 160px;
+    z-index: 40;
+}
+
+.export-dropdown.open .export-menu {
+    display: block;
+}
+
+/* ── Collapsible sections ─────────────────────── */
+
+.collapse-content {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.2s ease-out;
+}
+
+.collapse-content.open {
+    max-height: 9999px;
+}
+
+/* ── Spinner animation ────────────────────────── */
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* ── Toast animation ─────────────────────────── */
+
+.animate-fadeIn {
+    animation: toastIn 0.25s ease-out;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
