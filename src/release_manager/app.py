@@ -6,6 +6,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from release_manager.api.routes import router
+from release_manager.services import remote
+from release_manager.settings import settings
 
 PACKAGE_DIR = Path(__file__).parent
 
@@ -45,6 +47,7 @@ def create_app() -> FastAPI:
     app.state.templates = templates
     app.state.last_report = None
     app.state.releases = []
+    app.state.app_config = remote.load_config(settings.repos_dir)
 
     app.include_router(router)
 

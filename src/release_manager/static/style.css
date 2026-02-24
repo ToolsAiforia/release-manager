@@ -162,6 +162,35 @@
     color: #a5b4fc;
 }
 
+/* ── Repo mode tabs (same as tab-btn) ────────── */
+
+.repo-mode-btn {
+    border-color: transparent;
+    color: #6b7280;
+}
+
+.repo-mode-btn:hover {
+    color: #374151;
+}
+
+.repo-mode-btn.active {
+    border-color: #6366f1;
+    color: #4f46e5;
+}
+
+.dark .repo-mode-btn {
+    color: #6b7280;
+}
+
+.dark .repo-mode-btn:hover {
+    color: #d1d5db;
+}
+
+.dark .repo-mode-btn.active {
+    border-color: #818cf8;
+    color: #a5b4fc;
+}
+
 /* ── Report entrance animation ──────────────── */
 
 .report-enter {

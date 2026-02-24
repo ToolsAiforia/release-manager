@@ -5,13 +5,15 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 
 from release_manager.models import (
+    AppConfig,
     Release,
     ReleaseReport,
+    RemoteRepo,
     RepoReport,
     RepoSelection,
     TagInfo,
 )
-from release_manager.services import exporter, git_ops, scanner
+from release_manager.services import exporter, git_ops, remote, scanner
 from release_manager.settings import settings
 
 router = APIRouter()
@@ -71,12 +73,14 @@ def _find_release(request: Request, release_id: str) -> Release | None:
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    config: AppConfig = request.app.state.app_config
     return _templates(request).TemplateResponse(
         "index.html",
         {
             "request": request,
             "default_root_dir": settings.default_root_dir,
             "active_page": "repos",
+            "app_config": config,
         },
     )
 
@@ -210,6 +214,149 @@ async def api_delete_release(release_id: str, request: Request):
             releases.pop(i)
             return {"ok": True}
     return Response("Not found", status_code=404)
+
+
+# ── Settings & Remote Repos API ────────────────────────────
+
+
+@router.get("/api/settings")
+async def api_get_settings(request: Request):
+    """Return current git credentials (token masked)."""
+    config: AppConfig = request.app.state.app_config
+    return {
+        "git_username": config.git_username,
+        "has_token": bool(config.git_token),
+    }
+
+
+@router.post("/api/settings")
+async def api_save_settings(request: Request):
+    """Update git credentials."""
+    body = await request.json()
+    config: AppConfig = request.app.state.app_config
+    config.git_username = body.get("git_username", config.git_username)
+    token = body.get("git_token", "")
+    if token:
+        config.git_token = token
+    remote.save_config(settings.repos_dir, config)
+    request.app.state.app_config = config
+    return {"ok": True}
+
+
+@router.post("/api/remote-repos")
+async def api_add_remote_repo(request: Request):
+    """Add a remote repo URL, clone it."""
+    body = await request.json()
+    url = body.get("url", "").strip()
+    if not url:
+        return Response("URL is required", status_code=400)
+
+    config: AppConfig = request.app.state.app_config
+
+    # Check for duplicate
+    for r in config.remote_repos:
+        if r.url == url:
+            return Response("Repo already added", status_code=409)
+
+    name = remote.repo_name_from_url(url)
+
+    try:
+        remote.clone_repo(
+            url, settings.repos_dir,
+            config.git_username, config.git_token,
+        )
+    except Exception as e:
+        return Response(f"Clone failed: {e}", status_code=500)
+
+    repo = RemoteRepo(
+        id=uuid4().hex[:12],
+        url=url,
+        name=name,
+        added_at=datetime.now(),
+        last_synced=datetime.now(),
+    )
+    config.remote_repos.append(repo)
+    remote.save_config(settings.repos_dir, config)
+
+    return {"id": repo.id, "name": repo.name}
+
+
+@router.delete("/api/remote-repos/{repo_id}")
+async def api_remove_remote_repo(repo_id: str, request: Request):
+    """Remove a remote repo and its cloned directory."""
+    config: AppConfig = request.app.state.app_config
+    for i, r in enumerate(config.remote_repos):
+        if r.id == repo_id:
+            remote.remove_repo(
+                r.name, settings.repos_dir,
+                is_local_import=bool(r.local_path),
+            )
+            config.remote_repos.pop(i)
+            remote.save_config(settings.repos_dir, config)
+            return {"ok": True}
+    return Response("Not found", status_code=404)
+
+
+@router.post("/api/remote-repos/{repo_id}/sync")
+async def api_sync_remote_repo(repo_id: str, request: Request):
+    """Fetch + pull a specific remote repo."""
+    config: AppConfig = request.app.state.app_config
+    for r in config.remote_repos:
+        if r.id == repo_id:
+            try:
+                msg = remote.sync_repo(
+                    r.name, settings.repos_dir,
+                    config.git_username, config.git_token,
+                    r.url, r.local_path,
+                )
+                r.last_synced = datetime.now()
+                remote.save_config(settings.repos_dir, config)
+                return {"message": msg}
+            except Exception as e:
+                return Response(f"Sync failed: {e}", status_code=500)
+    return Response("Not found", status_code=404)
+
+
+@router.post("/api/import-local")
+async def api_import_local(request: Request):
+    """Scan a local directory and import repos into remote list."""
+    body = await request.json()
+    root_dir = body.get("root_dir", "").strip()
+    if not root_dir:
+        return Response("Directory path is required", status_code=400)
+
+    config: AppConfig = request.app.state.app_config
+    repos = scanner.scan_repos(root_dir)
+
+    existing_paths = {r.local_path for r in config.remote_repos if r.local_path}
+    existing_urls = {r.url for r in config.remote_repos}
+
+    added = 0
+    skipped = 0
+    for repo in repos:
+        if repo.path in existing_paths:
+            skipped += 1
+            continue
+
+        origin_url = remote.get_origin_url(repo.path) or ""
+        if origin_url and origin_url in existing_urls:
+            skipped += 1
+            continue
+
+        entry = RemoteRepo(
+            id=uuid4().hex[:12],
+            url=origin_url,
+            name=repo.name,
+            added_at=datetime.now(),
+            local_path=repo.path,
+        )
+        config.remote_repos.append(entry)
+        added += 1
+
+    if added > 0:
+        remote.save_config(settings.repos_dir, config)
+
+    return {"added": added, "skipped": skipped, "total": len(repos)}
 
 
 # ── Export ─────────────────────────────────────────────────────
@@ -346,6 +493,134 @@ async def partial_fetch_and_reload(request: Request):
     return _templates(request).TemplateResponse(
         "partials/repo_list.html",
         {"request": request, "repos": repos, "root_dir": root_dir, "repo_tags": repo_tags},
+    )
+
+
+@router.post("/partials/remote-repo-list", response_class=HTMLResponse)
+async def partial_remote_repo_list(request: Request):
+    """Return the remote repos table with tags loaded."""
+    config: AppConfig = request.app.state.app_config
+    repo_tags: dict[str, list[TagInfo]] = {}
+    for r in config.remote_repos:
+        repo_path = remote.get_repo_path(r.name, settings.repos_dir, r.local_path)
+        try:
+            repo_tags[r.name] = git_ops.get_tags(repo_path)
+        except Exception:
+            repo_tags[r.name] = []
+    return _templates(request).TemplateResponse(
+        "partials/remote_repo_list.html",
+        {
+            "request": request,
+            "app_config": config,
+            "repo_tags": repo_tags,
+        },
+    )
+
+
+@router.post("/partials/remote-collect-and-redirect")
+async def partial_remote_collect_and_redirect(request: Request):
+    """Collect commits from selected remote repos, redirect to draft."""
+    form = await request.form()
+    selected_repos = form.getlist("selected_repos")
+
+    if not selected_repos:
+        return HTMLResponse(
+            '<div class="px-4 py-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 '
+            'dark:border-red-500/20 text-sm text-red-700 dark:text-red-300">'
+            "Select at least one repo.</div>",
+            headers={"HX-Reswap": "innerHTML", "HX-Retarget": "#remote-repo-list"},
+        )
+
+    config: AppConfig = request.app.state.app_config
+    selections: list[RepoSelection] = []
+    for name in selected_repos:
+        from_tag = str(form.get(f"from_tag__{name}", ""))
+        to_tag = str(form.get(f"to_tag__{name}", ""))
+        if from_tag and to_tag:
+            selections.append(
+                RepoSelection(repo_name=name, from_tag=from_tag, to_tag=to_tag)
+            )
+
+    if not selections:
+        return HTMLResponse(
+            '<div class="px-4 py-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 '
+            'dark:border-red-500/20 text-sm text-red-700 dark:text-red-300">'
+            "Select at least one repo with both from/to tags.</div>",
+            headers={"HX-Reswap": "innerHTML", "HX-Retarget": "#remote-repo-list"},
+        )
+
+    # Build report using clone paths instead of root_dir/name
+    # Build a lookup for local_path by repo name
+    repo_lookup = {r.name: r for r in config.remote_repos}
+    repo_reports: list[RepoReport] = []
+    all_keys: set[str] = set()
+    for sel in selections:
+        entry = repo_lookup.get(sel.repo_name)
+        lp = entry.local_path if entry else None
+        repo_path = remote.get_repo_path(sel.repo_name, settings.repos_dir, lp)
+        commits = git_ops.get_commits_between_tags(
+            repo_path, sel.from_tag, sel.to_tag
+        )
+        repo_keys: list[str] = []
+        seen: set[str] = set()
+        for c in commits:
+            for k in c.linear_keys:
+                if k not in seen:
+                    seen.add(k)
+                    repo_keys.append(k)
+        all_keys.update(repo_keys)
+
+        repo_reports.append(
+            RepoReport(
+                repo_name=sel.repo_name,
+                from_tag=sel.from_tag,
+                to_tag=sel.to_tag,
+                commits=commits,
+                linear_keys=repo_keys,
+            )
+        )
+
+    report = ReleaseReport(
+        generated_at=datetime.now(),
+        root_dir=settings.repos_dir,
+        repos=repo_reports,
+        all_linear_keys=sorted(all_keys),
+    )
+    request.app.state.last_report = report
+    return HTMLResponse("", headers={"HX-Redirect": "/draft"})
+
+
+@router.post("/partials/remote-sync-all", response_class=HTMLResponse)
+async def partial_remote_sync_all(request: Request):
+    """Sync all remote repos, then return refreshed repo list."""
+    config: AppConfig = request.app.state.app_config
+    for r in config.remote_repos:
+        try:
+            remote.sync_repo(
+                r.name, settings.repos_dir,
+                config.git_username, config.git_token,
+                r.url, r.local_path,
+            )
+            r.last_synced = datetime.now()
+        except Exception:
+            pass
+    remote.save_config(settings.repos_dir, config)
+
+    repo_tags: dict[str, list[TagInfo]] = {}
+    for r in config.remote_repos:
+        repo_path = remote.get_repo_path(r.name, settings.repos_dir, r.local_path)
+        try:
+            repo_tags[r.name] = git_ops.get_tags(repo_path)
+        except Exception:
+            repo_tags[r.name] = []
+
+    return _templates(request).TemplateResponse(
+        "partials/remote_repo_list.html",
+        {
+            "request": request,
+            "app_config": config,
+            "repo_tags": repo_tags,
+        },
     )
 
 

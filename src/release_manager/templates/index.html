@@ -5,46 +5,209 @@
     <!-- Page header -->
     <div class="mb-6">
         <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Repositories</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Scan a directory, select repos and tag ranges, then collect commits.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Select repos and tag ranges, then collect commits.</p>
     </div>
 
-    <!-- Scan bar -->
-    <form class="flex items-center gap-3 mb-6"
-          hx-post="/partials/repo-list"
-          hx-target="#repo-list"
-          hx-indicator="#scan-spinner">
-        <div class="flex-1 relative">
-            <input type="text" name="root_dir" id="root_dir"
-                   value="{{ default_root_dir }}"
-                   placeholder="/path/to/repos/"
-                   class="w-full px-4 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
-                          bg-white dark:bg-[#1a1d26] text-gray-900 dark:text-gray-100
-                          placeholder-gray-400 dark:placeholder-gray-500
-                          focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500
-                          transition-colors">
-        </div>
-        <button type="submit"
-                class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white
-                       bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors
-                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-            Scan
-        </button>
-        <span id="scan-spinner" class="htmx-indicator text-gray-500 dark:text-gray-400">
-            <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-        </span>
-    </form>
+    <!-- Tab switcher: Local / Remote -->
+    <div class="border-b border-gray-200 dark:border-gray-800 mb-6">
+        <nav class="flex gap-6" id="repo-mode-tabs">
+            <button onclick="switchRepoMode('local')"
+                    class="repo-mode-btn active pb-2.5 text-sm font-medium border-b-2 transition-colors"
+                    data-mode="local">
+                <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/>
+                    </svg>
+                    Local
+                </span>
+            </button>
+            <button onclick="switchRepoMode('remote')"
+                    class="repo-mode-btn pb-2.5 text-sm font-medium border-b-2 transition-colors"
+                    data-mode="remote">
+                <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/>
+                    </svg>
+                    Remote
+                    {% if app_config.remote_repos %}
+                    <span class="inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded-full
+                                 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                        {{ app_config.remote_repos|length }}
+                    </span>
+                    {% endif %}
+                </span>
+            </button>
+        </nav>
+    </div>
 
-    <!-- Repo list (loaded by HTMX) -->
-    <div id="repo-list"></div>
+    <!-- LOCAL MODE -->
+    <div id="mode-local" class="repo-mode-panel">
+        <!-- Scan bar -->
+        <form class="flex items-center gap-3 mb-6"
+              hx-post="/partials/repo-list"
+              hx-target="#repo-list"
+              hx-indicator="#scan-spinner">
+            <div class="flex-1 relative">
+                <input type="text" name="root_dir" id="root_dir"
+                       value="{{ default_root_dir }}"
+                       placeholder="/path/to/repos/"
+                       class="w-full px-4 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                              bg-white dark:bg-[#1a1d26] text-gray-900 dark:text-gray-100
+                              placeholder-gray-400 dark:placeholder-gray-500
+                              focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500
+                              transition-colors">
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white
+                           bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                Scan
+            </button>
+            <span id="scan-spinner" class="htmx-indicator text-gray-500 dark:text-gray-400">
+                <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </span>
+        </form>
+
+        <!-- Repo list (loaded by HTMX) -->
+        <div id="repo-list"></div>
+    </div>
+
+    <!-- REMOTE MODE -->
+    <div id="mode-remote" class="repo-mode-panel hidden">
+        <!-- Credentials bar -->
+        <div class="mb-6 p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26]">
+            <div class="flex items-end gap-3">
+                <div class="flex-1">
+                    <label class="block text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                        Git Username
+                    </label>
+                    <input type="text" id="git_username"
+                           value="{{ app_config.git_username }}"
+                           placeholder="username"
+                           class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                                  bg-gray-50 dark:bg-[#0f1117] text-gray-900 dark:text-gray-100
+                                  placeholder-gray-400 dark:placeholder-gray-500
+                                  focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500
+                                  transition-colors">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                        Access Token
+                    </label>
+                    <input type="password" id="git_token"
+                           placeholder="{% if app_config.git_token %}••••••••{% else %}ghp_...{% endif %}"
+                           class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                                  bg-gray-50 dark:bg-[#0f1117] text-gray-900 dark:text-gray-100
+                                  placeholder-gray-400 dark:placeholder-gray-500
+                                  focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500
+                                  transition-colors">
+                </div>
+                <button onclick="saveCredentials()"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg
+                               border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1d26]
+                               text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#252830]
+                               transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                    </svg>
+                    Save
+                </button>
+            </div>
+        </div>
+
+        <!-- Add repo: URL or Import from directory -->
+        <div class="flex items-center gap-3 mb-3">
+            <div class="flex-1 relative">
+                <input type="text" id="remote_repo_url"
+                       placeholder="https://github.com/org/repo.git"
+                       class="w-full px-4 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                              bg-white dark:bg-[#1a1d26] text-gray-900 dark:text-gray-100
+                              placeholder-gray-400 dark:placeholder-gray-500
+                              focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500
+                              transition-colors">
+            </div>
+            <button onclick="addRemoteRepo()"
+                    id="add-repo-btn"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white
+                           bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                </svg>
+                Add Repo
+            </button>
+            <span id="add-repo-spinner" class="hidden text-gray-500 dark:text-gray-400">
+                <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </span>
+        </div>
+
+        <!-- Import from local directory -->
+        <div class="flex items-center gap-3 mb-6">
+            <div class="flex-1 relative">
+                <input type="text" id="import_dir"
+                       value="{{ default_root_dir }}"
+                       placeholder="/path/to/local/repos/"
+                       class="w-full px-4 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                              bg-white dark:bg-[#1a1d26] text-gray-900 dark:text-gray-100
+                              placeholder-gray-400 dark:placeholder-gray-500
+                              focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500
+                              transition-colors">
+            </div>
+            <button onclick="importLocalRepos()"
+                    id="import-btn"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg
+                           border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1d26]
+                           text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#252830]
+                           transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+                </svg>
+                Scan & Import
+            </button>
+            <span id="import-spinner" class="hidden text-gray-500 dark:text-gray-400">
+                <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </span>
+        </div>
+
+        <!-- Remote repo list (loaded by HTMX) -->
+        <div id="remote-repo-list"
+             hx-post="/partials/remote-repo-list"
+             hx-trigger="load"
+             hx-indicator="#remote-load-spinner">
+            <div class="text-center py-8">
+                <span id="remote-load-spinner" class="htmx-indicator text-gray-500 dark:text-gray-400">
+                    <svg class="animate-spin w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </span>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
+/* ── Repo mode tabs ──────────────────────────────────── */
+function switchRepoMode(mode) {
+    document.querySelectorAll('.repo-mode-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.repo-mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('mode-' + mode)?.classList.remove('hidden');
+    document.querySelector(`.repo-mode-btn[data-mode="${mode}"]`)?.classList.add('active');
+}
+
+/* ── Local mode functions ────────────────────────────── */
 function classifyFetchResult(raw) {
     const lower = raw.toLowerCase();
     const fetchOk = lower.includes('fetch ok');
@@ -103,6 +266,146 @@ async function fetchRepo(name) {
 
 function toggleAll(source) {
     document.querySelectorAll('.repo-cb').forEach(cb => cb.checked = source.checked);
+}
+
+/* ── Remote mode functions ───────────────────────────── */
+async function saveCredentials() {
+    const username = document.getElementById('git_username').value;
+    const token = document.getElementById('git_token').value;
+    try {
+        const resp = await fetch('/api/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ git_username: username, git_token: token }),
+        });
+        if (resp.ok) {
+            showToast('Credentials saved', 'success');
+            if (token) document.getElementById('git_token').value = '';
+            if (token) document.getElementById('git_token').placeholder = '••••••••';
+        } else {
+            showToast('Failed to save credentials', 'error');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function addRemoteRepo() {
+    const urlInput = document.getElementById('remote_repo_url');
+    const url = urlInput.value.trim();
+    if (!url) return;
+
+    const btn = document.getElementById('add-repo-btn');
+    const spinner = document.getElementById('add-repo-spinner');
+    btn.disabled = true;
+    btn.classList.add('opacity-50');
+    spinner.classList.remove('hidden');
+
+    try {
+        const resp = await fetch('/api/remote-repos', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ url }),
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            showToast(`Added ${data.name}`, 'success');
+            urlInput.value = '';
+            // Reload remote repo list
+            htmx.ajax('POST', '/partials/remote-repo-list', {target: '#remote-repo-list'});
+        } else {
+            const text = await resp.text();
+            showToast(text || 'Failed to add repo', 'error');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
+        spinner.classList.add('hidden');
+    }
+}
+
+async function deleteRemoteRepo(id, name) {
+    if (!confirm(`Remove ${name}?`)) return;
+    try {
+        const resp = await fetch(`/api/remote-repos/${id}`, { method: 'DELETE' });
+        if (resp.ok) {
+            showToast(`Removed ${name}`, 'success');
+            htmx.ajax('POST', '/partials/remote-repo-list', {target: '#remote-repo-list'});
+        } else {
+            showToast('Failed to remove repo', 'error');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function importLocalRepos() {
+    const dirInput = document.getElementById('import_dir');
+    const rootDir = dirInput.value.trim();
+    if (!rootDir) return;
+
+    const btn = document.getElementById('import-btn');
+    const spinner = document.getElementById('import-spinner');
+    btn.disabled = true;
+    btn.classList.add('opacity-50');
+    spinner.classList.remove('hidden');
+
+    try {
+        const resp = await fetch('/api/import-local', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ root_dir: rootDir }),
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.added > 0) {
+                showToast(`Imported ${data.added} repos (${data.skipped} skipped)`, 'success');
+                htmx.ajax('POST', '/partials/remote-repo-list', {target: '#remote-repo-list'});
+            } else if (data.total > 0) {
+                showToast(`All ${data.total} repos already imported`, 'warning');
+            } else {
+                showToast('No git repos found in this directory', 'warning');
+            }
+        } else {
+            const text = await resp.text();
+            showToast(text || 'Import failed', 'error');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
+        spinner.classList.add('hidden');
+    }
+}
+
+async function syncRemoteRepo(id, name) {
+    const btn = event.target.closest('button');
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>`;
+    try {
+        const resp = await fetch(`/api/remote-repos/${id}/sync`, { method: 'POST' });
+        if (resp.ok) {
+            const data = await resp.json();
+            const raw = data.message || 'Done';
+            const type = classifyFetchResult(raw);
+            showToast(`${name}: ${cleanGitMessage(raw)}`, type);
+            btn.innerHTML = `<svg class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
+        } else {
+            const text = await resp.text();
+            showToast(`${name}: ${text}`, 'error');
+            btn.innerHTML = `<svg class="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>`;
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>`;
+    }
+    setTimeout(() => {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>`;
+        btn.disabled = false;
+    }, 2500);
 }
 </script>
 {% endblock %}

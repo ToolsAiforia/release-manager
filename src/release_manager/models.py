@@ -52,3 +52,18 @@ class Release(BaseModel):
     name: str
     created_at: datetime = Field(default_factory=datetime.now)
     report: ReleaseReport
+
+
+class RemoteRepo(BaseModel):
+    id: str
+    url: str
+    name: str
+    added_at: datetime = Field(default_factory=datetime.now)
+    last_synced: datetime | None = None
+    local_path: str | None = None
+
+
+class AppConfig(BaseModel):
+    git_username: str = ""
+    git_token: str = ""
+    remote_repos: list[RemoteRepo] = Field(default_factory=list)
