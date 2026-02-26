@@ -66,10 +66,15 @@
                     {% for key in repo_keys %}
                     <tr class="hover:bg-gray-50/50 dark:hover:bg-[#252830]/50">
                         <td class="px-4 py-2.5">
-                            <span class="inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full
-                                         bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300">
+                            <button onclick="openIssuePanel('{{ key }}')"
+                               class="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-full
+                                      bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300
+                                      hover:bg-violet-200 dark:hover:bg-violet-500/30 transition-colors cursor-pointer">
                                 {{ key }}
-                            </span>
+                                <svg class="w-3 h-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+                                </svg>
+                            </button>
                         </td>
                         <td class="px-4 py-2.5">
                             <div class="flex flex-wrap gap-1.5">
@@ -246,11 +251,293 @@
     {% endfor %}
 </div>
 
+{# ── Linear Issue Slide-over Panel ────────────────────── #}
+<div id="issue-panel-backdrop" onclick="closeIssuePanel()"
+     class="fixed inset-0 bg-black/30 dark:bg-black/50 z-40 hidden opacity-0 transition-opacity duration-200"></div>
+<div id="issue-panel"
+     class="fixed top-0 right-0 h-full w-[480px] max-w-[90vw] z-50
+            bg-white dark:bg-[#1a1d26] border-l border-gray-200 dark:border-gray-800
+            shadow-2xl transform translate-x-full transition-transform duration-200 ease-out
+            flex flex-col overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <span id="ip-identifier"
+                  class="inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full shrink-0
+                         bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300"></span>
+            <span id="ip-status"
+                  class="inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full shrink-0"></span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <a id="ip-linear-link" href="#" target="_blank" rel="noopener"
+               class="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 dark:hover:text-violet-400
+                      hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+               title="Open in Linear">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+                </svg>
+            </a>
+            <button onclick="closeIssuePanel()"
+                    class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300
+                           hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <!-- Loading state -->
+    <div id="ip-loading" class="flex-1 flex items-center justify-center">
+        <svg class="animate-spin w-6 h-6 text-violet-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+    </div>
+    <!-- Error state -->
+    <div id="ip-error" class="flex-1 items-center justify-center text-center px-6 hidden">
+        <div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-2" id="ip-error-msg">Could not load issue details.</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500">Check your Linear API key in Remote &rarr; Credentials.</p>
+        </div>
+    </div>
+    <!-- Content -->
+    <div id="ip-content" class="flex-1 overflow-y-auto hidden">
+        <div class="px-5 py-4 space-y-5">
+            <!-- Title -->
+            <h2 id="ip-title" class="text-base font-semibold text-gray-900 dark:text-gray-100 leading-snug"></h2>
+
+            <!-- Meta row -->
+            <div class="flex flex-wrap gap-3">
+                <div id="ip-priority-wrap" class="hidden">
+                    <span class="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Priority</span>
+                    <span id="ip-priority" class="text-sm text-gray-700 dark:text-gray-300"></span>
+                </div>
+                <div id="ip-assignee-wrap" class="hidden">
+                    <span class="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Assignee</span>
+                    <span id="ip-assignee" class="text-sm text-gray-700 dark:text-gray-300"></span>
+                </div>
+                <div id="ip-project-wrap" class="hidden">
+                    <span class="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Project</span>
+                    <span id="ip-project" class="text-sm text-gray-700 dark:text-gray-300"></span>
+                </div>
+                <div id="ip-dates-wrap" class="hidden">
+                    <span class="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Created</span>
+                    <span id="ip-created" class="text-sm text-gray-700 dark:text-gray-300 tabular-nums"></span>
+                </div>
+            </div>
+
+            <!-- Labels -->
+            <div id="ip-labels-wrap" class="hidden">
+                <span class="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Labels</span>
+                <div id="ip-labels" class="flex flex-wrap gap-1.5"></div>
+            </div>
+
+            <!-- Description -->
+            <div id="ip-desc-wrap" class="hidden">
+                <span class="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Description</span>
+                <div id="ip-desc" class="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300
+                                         whitespace-pre-wrap break-words leading-relaxed"></div>
+            </div>
+
+            <!-- Related issues -->
+            <div id="ip-relations-wrap" class="hidden">
+                <span class="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Related Issues</span>
+                <div id="ip-relations" class="space-y-1.5"></div>
+            </div>
+
+            <!-- Comments -->
+            <div id="ip-comments-wrap" class="hidden">
+                <span class="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Comments</span>
+                <div id="ip-comments" class="space-y-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 function switchTab(name) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-' + name)?.classList.remove('hidden');
     document.querySelector(`.tab-btn[data-tab="${name}"]`)?.classList.add('active');
+}
+
+/* ── Linear issue slide-over ─────────────────────────── */
+const _issueCache = {};
+
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
+
+function openIssuePanel(key) {
+    const panel = document.getElementById('issue-panel');
+    const backdrop = document.getElementById('issue-panel-backdrop');
+    const loading = document.getElementById('ip-loading');
+    const content = document.getElementById('ip-content');
+    const error = document.getElementById('ip-error');
+
+    // Set identifier immediately
+    document.getElementById('ip-identifier').textContent = key;
+    document.getElementById('ip-linear-link').href = 'https://linear.app/aiphoria-ai/issue/' + key;
+
+    // Show panel
+    backdrop.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        backdrop.classList.remove('opacity-0');
+        panel.classList.remove('translate-x-full');
+    });
+
+    // Check cache
+    if (_issueCache[key]) {
+        loading.classList.add('hidden');
+        error.classList.add('hidden');
+        content.classList.remove('hidden');
+        _renderIssue(_issueCache[key]);
+        return;
+    }
+
+    // Show loading
+    loading.classList.remove('hidden');
+    content.classList.add('hidden');
+    error.classList.add('hidden');
+
+    fetch('/api/linear/issue/' + encodeURIComponent(key))
+        .then(r => {
+            if (!r.ok) throw new Error(r.status === 400 ? 'Linear API key not configured' : 'Issue not found');
+            return r.json();
+        })
+        .then(data => {
+            _issueCache[key] = data;
+            loading.classList.add('hidden');
+            content.classList.remove('hidden');
+            _renderIssue(data);
+        })
+        .catch(e => {
+            loading.classList.add('hidden');
+            error.classList.remove('hidden');
+            error.classList.add('flex');
+            document.getElementById('ip-error-msg').textContent = e.message;
+        });
+}
+
+function closeIssuePanel() {
+    const panel = document.getElementById('issue-panel');
+    const backdrop = document.getElementById('issue-panel-backdrop');
+    panel.classList.add('translate-x-full');
+    backdrop.classList.add('opacity-0');
+    setTimeout(() => backdrop.classList.add('hidden'), 200);
+}
+
+// Close on Escape
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeIssuePanel();
+});
+
+function _renderIssue(d) {
+    // Title
+    document.getElementById('ip-title').textContent = d.title || 'Untitled';
+
+    // Status badge
+    const statusEl = document.getElementById('ip-status');
+    if (d.status) {
+        statusEl.textContent = d.status;
+        statusEl.style.backgroundColor = (d.status_color || '#8b5cf6') + '20';
+        statusEl.style.color = d.status_color || '#8b5cf6';
+        statusEl.classList.remove('hidden');
+    } else {
+        statusEl.classList.add('hidden');
+    }
+
+    // Priority
+    _showOrHide('ip-priority-wrap', 'ip-priority', d.priority);
+
+    // Assignee
+    _showOrHide('ip-assignee-wrap', 'ip-assignee', d.assignee);
+
+    // Project
+    _showOrHide('ip-project-wrap', 'ip-project', d.project);
+
+    // Created date
+    if (d.created_at) {
+        document.getElementById('ip-dates-wrap').classList.remove('hidden');
+        document.getElementById('ip-created').textContent = new Date(d.created_at).toLocaleDateString('en-US', {year:'numeric', month:'short', day:'numeric'});
+    } else {
+        document.getElementById('ip-dates-wrap').classList.add('hidden');
+    }
+
+    // Labels
+    const labelsWrap = document.getElementById('ip-labels-wrap');
+    const labelsEl = document.getElementById('ip-labels');
+    if (d.labels && d.labels.length) {
+        labelsEl.innerHTML = d.labels.map(l =>
+            `<span class="inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full"
+                   style="background:${escapeHtml(l.color || '#6b7280')}20;color:${escapeHtml(l.color || '#6b7280')}">${escapeHtml(l.name)}</span>`
+        ).join('');
+        labelsWrap.classList.remove('hidden');
+    } else {
+        labelsWrap.classList.add('hidden');
+    }
+
+    // Description
+    const descWrap = document.getElementById('ip-desc-wrap');
+    const descEl = document.getElementById('ip-desc');
+    if (d.description) {
+        descEl.textContent = d.description;
+        descWrap.classList.remove('hidden');
+    } else {
+        descWrap.classList.add('hidden');
+    }
+
+    // Relations
+    const relWrap = document.getElementById('ip-relations-wrap');
+    const relEl = document.getElementById('ip-relations');
+    if (d.relations && d.relations.length) {
+        relEl.innerHTML = d.relations.map(r =>
+            `<div class="flex items-center gap-2 text-sm">
+                <span class="text-[10px] uppercase font-medium text-gray-400 dark:text-gray-500 w-16 shrink-0">${escapeHtml(r.type)}</span>
+                <button onclick="openIssuePanel('${escapeHtml(r.identifier)}')"
+                        class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full
+                               bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300
+                               hover:bg-violet-200 dark:hover:bg-violet-500/30 transition-colors cursor-pointer">
+                    ${escapeHtml(r.identifier)}
+                </button>
+                <span class="text-xs text-gray-600 dark:text-gray-400 truncate">${escapeHtml(r.title)}</span>
+            </div>`
+        ).join('');
+        relWrap.classList.remove('hidden');
+    } else {
+        relWrap.classList.add('hidden');
+    }
+
+    // Comments
+    const comWrap = document.getElementById('ip-comments-wrap');
+    const comEl = document.getElementById('ip-comments');
+    if (d.comments && d.comments.length) {
+        comEl.innerHTML = d.comments.map(c => {
+            const date = c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
+            return `<div class="p-3 rounded-lg bg-gray-50 dark:bg-[#0f1117] border border-gray-100 dark:border-gray-800">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <span class="text-xs font-medium text-gray-700 dark:text-gray-300">${escapeHtml(c.author || 'Unknown')}</span>
+                    <span class="text-[11px] text-gray-400 dark:text-gray-500">${escapeHtml(date)}</span>
+                </div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(c.body || '')}</div>
+            </div>`;
+        }).join('');
+        comWrap.classList.remove('hidden');
+    } else {
+        comWrap.classList.add('hidden');
+    }
+}
+
+function _showOrHide(wrapId, textId, value) {
+    const wrap = document.getElementById(wrapId);
+    if (value) {
+        document.getElementById(textId).textContent = value;
+        wrap.classList.remove('hidden');
+    } else {
+        wrap.classList.add('hidden');
+    }
 }
 </script>

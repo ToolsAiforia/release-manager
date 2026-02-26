@@ -82,7 +82,7 @@
     <div id="mode-remote" class="repo-mode-panel hidden">
         <!-- Credentials bar -->
         <div class="mb-6 p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26]">
-            <div class="flex items-end gap-3">
+            <div class="flex items-end gap-3 mb-3">
                 <div class="flex-1">
                     <label class="block text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                         Git Username
@@ -98,10 +98,22 @@
                 </div>
                 <div class="flex-1">
                     <label class="block text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                        Access Token
+                        Git Access Token
                     </label>
                     <input type="password" id="git_token"
                            placeholder="{% if app_config.git_token %}••••••••{% else %}ghp_...{% endif %}"
+                           class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                                  bg-gray-50 dark:bg-[#0f1117] text-gray-900 dark:text-gray-100
+                                  placeholder-gray-400 dark:placeholder-gray-500
+                                  focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500
+                                  transition-colors">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                        Linear API Key
+                    </label>
+                    <input type="password" id="linear_api_key"
+                           placeholder="{% if app_config.linear_api_key %}••••••••{% else %}lin_api_...{% endif %}"
                            class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
                                   bg-gray-50 dark:bg-[#0f1117] text-gray-900 dark:text-gray-100
                                   placeholder-gray-400 dark:placeholder-gray-500
@@ -112,7 +124,7 @@
                         class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg
                                border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1d26]
                                text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#252830]
-                               transition-colors">
+                               transition-colors whitespace-nowrap">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
                     </svg>
@@ -272,16 +284,19 @@ function toggleAll(source) {
 async function saveCredentials() {
     const username = document.getElementById('git_username').value;
     const token = document.getElementById('git_token').value;
+    const linearKey = document.getElementById('linear_api_key').value;
     try {
         const resp = await fetch('/api/settings', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ git_username: username, git_token: token }),
+            body: JSON.stringify({ git_username: username, git_token: token, linear_api_key: linearKey }),
         });
         if (resp.ok) {
             showToast('Credentials saved', 'success');
             if (token) document.getElementById('git_token').value = '';
             if (token) document.getElementById('git_token').placeholder = '••••••••';
+            if (linearKey) document.getElementById('linear_api_key').value = '';
+            if (linearKey) document.getElementById('linear_api_key').placeholder = '••••••••';
         } else {
             showToast('Failed to save credentials', 'error');
         }

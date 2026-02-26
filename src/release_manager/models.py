@@ -66,4 +66,5 @@ class RemoteRepo(BaseModel):
 class AppConfig(BaseModel):
     git_username: str = ""
     git_token: str = ""
+    linear_api_key: str = ""
     remote_repos: list[RemoteRepo] = Field(default_factory=list)

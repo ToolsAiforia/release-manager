@@ -13,7 +13,7 @@ from release_manager.models import (
     RepoSelection,
     TagInfo,
 )
-from release_manager.services import exporter, git_ops, remote, scanner
+from release_manager.services import exporter, git_ops, linear, remote, scanner
 from release_manager.settings import settings
 
 router = APIRouter()
@@ -221,23 +221,27 @@ async def api_delete_release(release_id: str, request: Request):
 
 @router.get("/api/settings")
 async def api_get_settings(request: Request):
-    """Return current git credentials (token masked)."""
+    """Return current credentials (tokens masked)."""
     config: AppConfig = request.app.state.app_config
     return {
         "git_username": config.git_username,
         "has_token": bool(config.git_token),
+        "has_linear_key": bool(config.linear_api_key),
     }
 
 
 @router.post("/api/settings")
 async def api_save_settings(request: Request):
-    """Update git credentials."""
+    """Update credentials."""
     body = await request.json()
     config: AppConfig = request.app.state.app_config
     config.git_username = body.get("git_username", config.git_username)
     token = body.get("git_token", "")
     if token:
         config.git_token = token
+    linear_key = body.get("linear_api_key", "")
+    if linear_key:
+        config.linear_api_key = linear_key
     remote.save_config(settings.repos_dir, config)
     request.app.state.app_config = config
     return {"ok": True}
@@ -461,6 +465,34 @@ async def api_export_release_commits(release_id: str, request: Request):
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=commits.csv"},
     )
+
+
+# ── Linear API ─────────────────────────────────────────────
+
+
+@router.get("/api/linear/issue/{identifier}")
+async def api_linear_issue(identifier: str, request: Request):
+    """Fetch a single Linear issue by identifier (e.g. ABC-123)."""
+    config: AppConfig = request.app.state.app_config
+    if not config.linear_api_key:
+        return Response("Linear API key not configured", status_code=400)
+    issue = linear.fetch_issue(identifier.upper(), config.linear_api_key)
+    if not issue:
+        return Response("Issue not found", status_code=404)
+    return issue
+
+
+@router.post("/api/linear/issues")
+async def api_linear_issues(request: Request):
+    """Batch-fetch Linear issues. Body: {"keys": ["ABC-123", ...]}."""
+    config: AppConfig = request.app.state.app_config
+    if not config.linear_api_key:
+        return Response("Linear API key not configured", status_code=400)
+    body = await request.json()
+    keys = [k.upper() for k in body.get("keys", [])]
+    if not keys:
+        return {}
+    return linear.fetch_issues(keys, config.linear_api_key)
 
 
 # ── HTMX Partials ─────────────────────────────────────────────
