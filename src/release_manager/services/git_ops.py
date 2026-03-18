@@ -87,6 +87,26 @@ def get_commits_between_tags(
     return commits
 
 
+def check_for_newer_tags(
+    repo_path: str, current_to_tag: str
+) -> TagInfo | None:
+    """Return the newest release tag after current_to_tag, or None."""
+    tags = get_tags(repo_path)
+    current_idx: int | None = None
+    for i, t in enumerate(tags):
+        if t.name == current_to_tag:
+            current_idx = i
+            break
+    if current_idx is None:
+        return None
+    # Tags before current_idx are newer (list sorted newest-first).
+    # Return first release tag found.
+    for t in tags[:current_idx]:
+        if t.is_release:
+            return t
+    return None
+
+
 def _tag_commit(tag_ref: TagReference):
     """Dereference annotated tags to their commit."""
     obj = tag_ref.tag

@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Request, Response
@@ -74,6 +75,23 @@ def _find_release(request: Request, release_id: str) -> Release | None:
     for rel in request.app.state.releases:
         if rel.id == release_id:
             return rel
+    return None
+
+
+def _resolve_repo_path(
+    repo_name: str, root_dir: str, request: Request
+) -> str | None:
+    """Resolve repo_name to filesystem path (remote then local fallback)."""
+    config: AppConfig = request.app.state.app_config
+    for r in config.remote_repos:
+        if r.name == repo_name:
+            path = remote.get_repo_path(r.name, settings.repos_dir, r.local_path)
+            if Path(path).exists():
+                return path
+            return None
+    path = f"{root_dir.rstrip('/')}/{repo_name}"
+    if Path(path).exists():
+        return path
     return None
 
 
@@ -255,6 +273,102 @@ async def api_delete_release(release_id: str, request: Request):
             releases.pop(i)
             return {"ok": True}
     return Response("Not found", status_code=404)
+
+
+@router.get("/api/releases/{release_id}/check-updates")
+async def api_check_release_updates(release_id: str, request: Request):
+    """Check each component in a release for newer tags."""
+    release = _find_release(request, release_id)
+    if not release:
+        return Response("Release not found", status_code=404)
+
+    results: list[dict] = []
+    for rr in release.report.repos:
+        repo_path = _resolve_repo_path(
+            rr.repo_name, release.report.root_dir, request
+        )
+        if repo_path is None:
+            results.append({
+                "repo_name": rr.repo_name,
+                "current_to_tag": rr.to_tag,
+                "newer_tag": None,
+                "error": "Repo not found on disk",
+            })
+            continue
+        try:
+            newer = git_ops.check_for_newer_tags(repo_path, rr.to_tag)
+            results.append({
+                "repo_name": rr.repo_name,
+                "current_to_tag": rr.to_tag,
+                "newer_tag": newer.name if newer else None,
+                "newer_tag_date": newer.date.isoformat() if newer else None,
+                "error": None,
+            })
+        except Exception as e:
+            results.append({
+                "repo_name": rr.repo_name,
+                "current_to_tag": rr.to_tag,
+                "newer_tag": None,
+                "error": str(e),
+            })
+
+    return {"updates": results}
+
+
+@router.post("/api/releases/{release_id}/update-component")
+async def api_update_release_component(release_id: str, request: Request):
+    """Update a single component in a release to a newer tag."""
+    release = _find_release(request, release_id)
+    if not release:
+        return Response("Release not found", status_code=404)
+
+    body = await request.json()
+    repo_name = body.get("repo_name", "")
+    new_to_tag = body.get("new_to_tag", "")
+    if not repo_name or not new_to_tag:
+        return Response("repo_name and new_to_tag required", status_code=400)
+
+    target_idx: int | None = None
+    for i, rr in enumerate(release.report.repos):
+        if rr.repo_name == repo_name:
+            target_idx = i
+            break
+    if target_idx is None:
+        return Response("Component not in this release", status_code=404)
+
+    existing = release.report.repos[target_idx]
+    repo_path = _resolve_repo_path(
+        repo_name, release.report.root_dir, request
+    )
+    if repo_path is None:
+        return Response("Repo not found on disk", status_code=404)
+
+    commits = git_ops.get_commits_between_tags(
+        repo_path, existing.from_tag, new_to_tag
+    )
+
+    repo_keys: list[str] = []
+    seen: set[str] = set()
+    for c in commits:
+        for k in c.linear_keys:
+            if k not in seen:
+                seen.add(k)
+                repo_keys.append(k)
+
+    release.report.repos[target_idx] = RepoReport(
+        repo_name=repo_name,
+        from_tag=existing.from_tag,
+        to_tag=new_to_tag,
+        commits=commits,
+        linear_keys=repo_keys,
+    )
+
+    all_keys: set[str] = set()
+    for rr in release.report.repos:
+        all_keys.update(rr.linear_keys)
+    release.report.all_linear_keys = sorted(all_keys)
+
+    return {"ok": True, "repo_name": repo_name, "new_to_tag": new_to_tag}
 
 
 # ── Settings & Remote Repos API ────────────────────────────
