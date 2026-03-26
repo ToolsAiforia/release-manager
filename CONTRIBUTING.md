@@ -168,7 +168,8 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/). Motivati
 
 - **Type**: Required. One of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 - **Scope**: Optional. Component or module name
-- **Subject**: Required. Lowercase, imperative mood, no period, max 50 chars. Must name the specific thing that changed
+- **Subject**: Required. Lowercase, imperative mood, no period. Must name the specific thing that changed
+- **Header length**: Total line (`type(scope): subject`) must not exceed 72 characters
 - **Issue ID**: Do NOT include in commit messages (branch handles linking)
 - **PR References**: Do NOT reference PRs, review comments, or feedback in commit messages. Commits must be self-contained and understandable without viewing any PR
 - **AI Co-authorship**: Do NOT include AI agent `Co-authored-by` trailers (e.g., Claude, ChatGPT, Copilot, Codex). Disable co-authorship in your AI tool settings.
@@ -368,9 +369,10 @@ Release [<name>] <version>
 
 - Brief description of what and why
 - Bullet list for important details
+- Release notes section (optional — for user-facing changes)
 - Magic words for Linear (see [Magic Words](#magic-words))
 
-**Example:**
+**Example (without release notes):**
 
 ```markdown
 Users can now specify preferred TTS engine per language in the request.
@@ -385,6 +387,30 @@ This enables better voice quality for non-English languages.
 
 Closes PLCORE-749
 ```
+
+**Example (with release notes):**
+
+```markdown
+Users can now specify preferred TTS engine per language in the request.
+This enables better voice quality for non-English languages.
+
+- Added language_engine_map config option
+- Falls back to default engine if no mapping exists
+
+---
+
+**Release notes:**
+
+- Added per-language TTS engine selection for improved voice quality
+
+---
+
+**Issues:**
+
+Closes PLCORE-749
+```
+
+> **Format note:** The release notes heading in PR bodies must be `**Release notes:**` (bold, lowercase "notes", colon). Do not use `## Release Notes` — that format is for `.release_notes/*.md` files used in GitHub Releases.
 
 #### Magic Words
 
@@ -451,6 +477,7 @@ Only one of the strategies can be used for the current repository. The reason wh
 - [ ] No commits contain issue IDs in messages
 - [ ] No commits contain AI agent Co-authored-by trailers
 - [ ] Tests pass locally
+- [ ] If release notes included, uses `**Release notes:**` format (not `## Release Notes`)
 - [ ] Code follows standards
 
 ### Good PR examples
@@ -528,6 +555,27 @@ are no longer used. All ASR now goes through the unified provider interface.
 **Issues:**
 
 Closes PLCORE-607
+```
+
+**Title:** `PLCORE-800: Remove legacy REST API v1 endpoints`
+
+```
+Removed deprecated v1 REST API endpoints. All consumers must migrate to v2.
+
+- Removed /api/v1/* routes
+- Updated API documentation
+
+---
+
+**Release notes:**
+
+- BREAKING: Removed legacy REST API v1 endpoints — migrate to /api/v2
+
+---
+
+**Issues:**
+
+Closes PLCORE-800
 ```
 
 ## Code Standards
