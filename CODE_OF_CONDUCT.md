@@ -2,25 +2,25 @@
 
 ## Purpose
 
-The Acclaim US Inc. Code of Conduct (“Code”) is built around our belief that everything we do will be measured against the highest possible standards of ethical business conduct. Our commitment to high standards helps us hire great people, build great products, and attract loyal customers.
+The Aiphoria US Inc. Code of Conduct (“Code”) is built around our belief that everything we do will be measured against the highest possible standards of ethical business conduct. Our commitment to high standards helps us hire great people, build great products, and attract loyal customers.
 
 ## Who must follow the Code?
 
-We expect all employees to know and follow the Code. Failure to do so can result in disciplinary action, up to and including termination of employment. We also expect our contractors, consultants, and others who may be temporarily assigned to perform work or services for Acclaim US Inc. to follow the Code when they work with us. Failure of an Acclaim US Inc. contractor, consultant, or other service provider to follow the Code can result in termination of their relationship with Acclaim US Inc.
+We expect all employees to know and follow the Code. Failure to do so can result in disciplinary action, up to and including termination of employment. We also expect our contractors, consultants, and others who may be temporarily assigned to perform work or services for Aiphoria US Inc. to follow the Code when they work with us. Failure of an Aiphoria US Inc. contractor, consultant, or other service provider to follow the Code can result in termination of their relationship with Aiphoria US Inc.
 
 ## Who to ask about the Code?
 
-If you have a question or concern about the Code, be proactive and contact your manager. You can also submit a question or raise a concern regarding a suspected violation of our Code (or any other Acclaim US Inc. policy) to your manager.
+If you have a question or concern about the Code, be proactive and contact your manager. You can also submit a question or raise a concern regarding a suspected violation of our Code (or any other Aiphoria US Inc. policy) to your manager.
 
 ## Our Pledge
 
-We pledge to make our company, Acclaim US Inc., welcoming, safe, and equitable for all.
+We pledge to make our company, Aiphoria US Inc., welcoming, safe, and equitable for all.
 
 We are committed to fostering an environment that respects and promotes the dignity, rights, and contributions of all individuals, regardless of characteristics including race, ethnicity, caste, color, age, physical characteristics, neurodiversity, disability, sex or gender, gender identity or expression, sexual orientation, language, philosophy or religion, national or social origin, socio-economic position, level of education, or other status. The same privileges of participation are extended to everyone who participates in good faith and in accordance with this Covenant.
 
 ## Encouraged Behaviors
 
-While acknowledging differences in social norms, we all strive to meet our company, Acclaim US Inc.'s expectations for positive behavior. We also understand that our words and actions may be interpreted differently than we intend based on culture, background, or native language.
+While acknowledging differences in social norms, we all strive to meet our company, Aiphoria US Inc.'s expectations for positive behavior. We also understand that our words and actions may be interpreted differently than we intend based on culture, background, or native language.
 
 With these considerations in mind, we agree to behave mindfully toward each other and act in ways that center our shared values, including:
 
@@ -30,7 +30,7 @@ With these considerations in mind, we agree to behave mindfully toward each othe
 - Taking responsibility for our actions and contributions.
 - Gracefully giving and accepting constructive feedback.
 - Committing to repairing harm when it occurs.
-- Behaving in other ways that promote and sustain the well-being of our company, Acclaim US Inc.
+- Behaving in other ways that promote and sustain the well-being of our company, Aiphoria US Inc.
 
 ## Restricted Behaviors
 
@@ -42,7 +42,7 @@ We agree to restrict the following behaviors in our company. Instances, threats,
 4. Sexualization. Behaving in a way that would generally be considered inappropriately intimate in the context or purpose of the company.
 5. Violating confidentiality. Sharing or acting on someone's personal or private information without their permission.
 6. Endangerment. Causing, encouraging, or threatening violence or other harm toward any person or group.
-7. Behaving in other ways that threaten the well-being of our company, Acclaim US Inc.
+7. Behaving in other ways that threaten the well-being of our company, Aiphoria US Inc.
 
 ## Other Restrictions
 
@@ -76,7 +76,7 @@ Contributor Covenant is stewarded by the Organization for Ethical Source and lic
 Once each year, as a condition of your employment, you’re required to acknowledge that you have received the Code of Conduct and understand its rules. New employees will sign an acknowledgment when they start with the company. Basically, your annual acknowledgment confirms that:
 
 - You’ve reviewed the Code of Conduct and you are required to comply with the Code of Conduct; you will comply with the compliance policies and procedures, as well as policies and procedures related to your job responsibilities.
-- You will report any questions or concerns about suspected or actual violations of the Code to your supervisor, anyone in management or Acclaim US Inc.’s Compliance Manager at [compliance@acclaim.ai](mailto:compliance@acclaim.ai).
+- You will report any questions or concerns about suspected or actual violations of the Code to your supervisor, anyone in management or Aiphoria US Inc.’s Compliance Manager at [compliance@acclaim.ai](mailto:compliance@acclaim.ai).
 - To the best of your knowledge, you haven’t acted contrary to the Code of Conduct.
 - You have reported any potential conflicts of interest to the Compliance Department.
 
