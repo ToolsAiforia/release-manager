@@ -124,7 +124,7 @@ Automated release workflows create branches that don't follow the standard `<iss
 
 ```
 release-<version>
-platform-bundle-<version>
+delivery-<version>
 ```
 
 - `version` is a SemVer number (e.g., `1.2.0`, `22.0.0`) — no `v` prefix
@@ -134,8 +134,8 @@ platform-bundle-<version>
 
 - ✅ `release-1.2.0`
 - ✅ `release-10.0.1`
-- ✅ `platform-bundle-22.0.0`
-- ✅ `platform-bundle-2.5.1`
+- ✅ `delivery-25.0.0`
+- ✅ `delivery-1.0.0`
 - ❌ `release-v1.2.0` — no `v` prefix
 - ❌ `release` — missing version
 
@@ -345,11 +345,12 @@ Release PRs are created by [release-action](https://github.com/acclaim-ai/releas
 
 ```
 Release [<name>] <version>
+Delivery [<name>] <version>
 ```
 
 **Rules:**
 
-- `Release` keyword is required, capitalized
+- `Release` or `Delivery` keyword is required, capitalized
 - `name` is the service or library name (optional for single-package repos, required for monorepos)
 - `version` is a SemVer number — no `v` prefix
 
@@ -358,8 +359,12 @@ Release [<name>] <version>
 - ✅ `Release 1.2.0`
 - ✅ `Release Dialog Manager 1.2.0`
 - ✅ `Release Platform Bundle 22.0.0`
+- ✅ `Delivery 25.0.0`
+- ✅ `Delivery Dialog Manager 1.0.0`
 - ❌ `Release v1.2.0` — no `v` prefix
 - ❌ `release 1.2.0` — must be capitalized
+- ❌ `delivery 25.0.0` — must be capitalized
+- ❌ `Delivery v1.2.0` — no `v` prefix
 
 ⚠️ Release PRs are created automatically by release workflows. Do not create them manually.
 
