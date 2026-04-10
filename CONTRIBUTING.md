@@ -168,7 +168,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/). Motivati
 
 - **Type**: Required. One of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 - **Scope**: Optional. Component or module name
-- **Subject**: Required. Lowercase, imperative mood, no period. Must name the specific thing that changed
+- **Subject**: Required. Lowercase, imperative mood, no period. Must describe WHAT changed (the technical modification), not WHY (the motivation). Bad: "close coverage gaps". Good: "add null-check to auth handler"
 - **Header length**: Total line (`type(scope): subject`) must not exceed 72 characters
 - **Issue ID**: Do NOT include in commit messages (branch handles linking)
 - **PR References**: Do NOT reference PRs, review comments, or feedback in commit messages. Commits must be self-contained and understandable without viewing any PR
@@ -240,6 +240,26 @@ docs(asr): update based on PR feedback
 fix: changes requested in code review
 wip
 btw
+```
+
+❌ WHY-focused commits (state motivation instead of technical change):
+
+```
+fix: close coverage gaps
+fix: address review feedback
+refactor: ensure compliance with rules
+feat: improve error handling
+fix: cover edge cases in validation
+```
+
+✅ The WHAT-focused equivalents:
+
+```
+fix(auth): add null-check and token expiry validation
+fix(parser): replace bcrypt with argon2 in hashPassword
+refactor(lint): change nesting depth threshold from 5 to 2
+feat(api): add retry with exponential backoff to fetchUser
+fix(validator): handle null and empty-string inputs
 ```
 
 ⚠️ This rule is enforced by [automated PR validation](https://github.com/acclaim-ai/contributing-action) and pre-commit hooks. Invalid commits block PR merge.
