@@ -9,9 +9,8 @@ make setup    # uv sync --all-extras
 make run      # uv run python -m release_manager (localhost:8000)
 make test     # uv run pytest tests/ -v
 make lint     # uv run ruff check src/ tests/
-```
 
-## Tech Stack
+я## Tech Stack
 
 Python 3.12 · FastAPI · Jinja2 · HTMX 2.0.4 (vendor, no build step) · Tailwind CSS (CDN) · GitPython · Pydantic v2 · pydantic-settings · uv
 

@@ -30,7 +30,13 @@ def get_tags(repo_path: str) -> list[TagInfo]:
             )
         )
 
-    tags.sort(key=lambda t: t.date, reverse=True)
+    def _tag_sort_key(t: TagInfo):
+        """Sort by date desc, then by build number desc for same-date tags."""
+        m = RELEASE_TAG_RE.match(t.name)
+        build_num = int(m.group(0).split("-")[1]) if m else 0
+        return (t.date, build_num)
+
+    tags.sort(key=_tag_sort_key, reverse=True)
     return tags
 
 

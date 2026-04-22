@@ -1,4 +1,100 @@
 {% if app_config.remote_repos %}
+
+{# ── Macros ─────────────────────────────────────── #}
+{% macro repo_row(repo, tags, last_tags) %}
+<tr class="hover:bg-gray-50/50 dark:hover:bg-[#252830]/50 transition-colors">
+    <td class="px-4 py-2.5">
+        <input type="checkbox" name="selected_repos" value="{{ repo.name }}" checked
+               class="repo-cb w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600
+                      text-indigo-500 focus:ring-indigo-500/40 cursor-pointer
+                      bg-white dark:bg-[#0f1117]">
+    </td>
+    <td class="px-4 py-2.5">
+        <div class="flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ repo.name }}</span>
+                {% if repo.source_repo %}
+                <span class="inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded
+                             bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400
+                             border border-violet-200 dark:border-violet-500/20">{{ repo.source_repo }}</span>
+                {% elif repo.local_path %}
+                <span class="inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded
+                             bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
+                             border border-emerald-200 dark:border-emerald-500/20">local</span>
+                {% endif %}
+            </div>
+            {% if repo.note %}
+            <span class="text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-xs"
+                  title="{{ repo.note }}">{{ repo.note }}</span>
+            {% elif repo.url %}
+            <span class="text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-xs"
+                  title="{{ repo.url }}">{{ repo.url }}</span>
+            {% elif repo.local_path %}
+            <span class="text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-xs"
+                  title="{{ repo.local_path }}">{{ repo.local_path }}</span>
+            {% endif %}
+        </div>
+    </td>
+    <td class="px-4 py-2.5">
+        <select name="from_tag__{{ repo.name }}"
+                class="w-full min-w-[160px] px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                       bg-gray-50 dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
+            <option value="">-- from --</option>
+            {% set pin = last_tags.get(repo.name, '') if last_tags is defined else '' %}
+            {% for tag in tags %}
+            <option value="{{ tag.name }}"
+                {% if pin %}{% if tag.name == pin %}selected{% endif %}{% elif loop.index == 2 %}selected{% endif %}>
+                {{ tag.name }}{% if tag.is_release %} *{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+    </td>
+    <td class="px-4 py-2.5">
+        <select name="to_tag__{{ repo.name }}"
+                class="w-full min-w-[160px] px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                       bg-gray-50 dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
+            <option value="">-- to --</option>
+            {% for tag in tags %}
+            <option value="{{ tag.name }}" {% if loop.index == 1 %}selected{% endif %}>
+                {{ tag.name }}{% if tag.is_release %} *{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+    </td>
+    <td class="px-4 py-2.5">
+        <div class="flex items-center justify-end gap-1">
+            {% if not repo.source_repo %}
+            <button class="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300
+                           hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onclick="syncRemoteRepo('{{ repo.id }}', '{{ repo.name }}')" title="Sync">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                </svg>
+            </button>
+            {% endif %}
+            <button class="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400
+                           hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onclick="deleteRemoteRepo('{{ repo.id }}', '{{ repo.name }}')" title="Remove">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                </svg>
+            </button>
+        </div>
+    </td>
+</tr>
+{% endmacro %}
+
+{# ── Collect visible repos and groups ───────────── #}
+{% set source_only = source_only if source_only is defined else [] %}
+{% set ns = namespace(groups=[]) %}
+{% for repo in app_config.remote_repos %}
+    {% if repo.group and repo.group not in ns.groups %}
+        {% set ns.groups = ns.groups + [repo.group] %}
+    {% endif %}
+{% endfor %}
+
 <div>
     <!-- Toolbar -->
     <div class="flex items-center justify-between mb-4">
@@ -34,7 +130,7 @@
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
             </svg>
-            Collect Commits
+            Collect Tasks
             <span id="remote-collect-spinner" class="htmx-indicator">
                 <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -68,83 +164,54 @@
                         Actions
                     </th>
                 </tr>
+                <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-transparent">
+                    <td></td>
+                    <td class="px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Load from deploy</td>
+                    <td class="px-4 py-1.5">
+                        <select id="load-from-release" onchange="loadFromRelease(this.value, 'from')"
+                                class="w-full min-w-[160px] px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                                       bg-white dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
+                                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
+                            <option value="">-- select --</option>
+                        </select>
+                    </td>
+                    <td class="px-4 py-1.5">
+                        <select id="load-to-release" onchange="loadFromRelease(this.value, 'to')"
+                                class="w-full min-w-[160px] px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                                       bg-white dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
+                                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
+                            <option value="">-- select --</option>
+                        </select>
+                    </td>
+                    <td></td>
+                </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                {% for repo in app_config.remote_repos %}
-                {% set tags = repo_tags.get(repo.name, []) %}
-                <tr class="hover:bg-gray-50/50 dark:hover:bg-[#252830]/50 transition-colors">
-                    <td class="px-4 py-2.5">
-                        <input type="checkbox" class="repo-cb" name="selected_repos" value="{{ repo.name }}" checked
-                               class="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600
-                                      text-indigo-500 focus:ring-indigo-500/40 cursor-pointer
-                                      bg-white dark:bg-[#0f1117]">
-                    </td>
-                    <td class="px-4 py-2.5">
-                        <div class="flex flex-col gap-0.5">
-                            <div class="flex items-center gap-2">
-                                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ repo.name }}</span>
-                                {% if repo.local_path %}
-                                <span class="inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded
-                                             bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
-                                             border border-emerald-200 dark:border-emerald-500/20">local</span>
-                                {% endif %}
-                            </div>
-                            {% if repo.url %}
-                            <span class="text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-xs"
-                                  title="{{ repo.url }}">{{ repo.url }}</span>
-                            {% elif repo.local_path %}
-                            <span class="text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-xs"
-                                  title="{{ repo.local_path }}">{{ repo.local_path }}</span>
-                            {% endif %}
-                        </div>
-                    </td>
-                    <td class="px-4 py-2.5">
-                        <select name="from_tag__{{ repo.name }}"
-                                class="w-full min-w-[160px] px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
-                                       bg-gray-50 dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
-                                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
-                            <option value="">-- from --</option>
-                            {% set pin = last_tags.get(repo.name, '') if last_tags is defined else '' %}
-                            {% for tag in tags %}
-                            <option value="{{ tag.name }}"
-                                {% if pin %}{% if tag.name == pin %}selected{% endif %}{% elif loop.index == 2 %}selected{% endif %}>
-                                {{ tag.name }}{% if tag.is_release %} *{% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </td>
-                    <td class="px-4 py-2.5">
-                        <select name="to_tag__{{ repo.name }}"
-                                class="w-full min-w-[160px] px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700
-                                       bg-gray-50 dark:bg-[#0f1117] text-gray-700 dark:text-gray-300
-                                       focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
-                            <option value="">-- to --</option>
-                            {% for tag in tags %}
-                            <option value="{{ tag.name }}" {% if loop.index == 1 %}selected{% endif %}>
-                                {{ tag.name }}{% if tag.is_release %} *{% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </td>
-                    <td class="px-4 py-2.5">
-                        <div class="flex items-center justify-end gap-1">
-                            <button class="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300
-                                           hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                    onclick="syncRemoteRepo('{{ repo.id }}', '{{ repo.name }}')" title="Sync">
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
-                                </svg>
-                            </button>
-                            <button class="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400
-                                           hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                    onclick="deleteRemoteRepo('{{ repo.id }}', '{{ repo.name }}')" title="Remove">
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-                                </svg>
-                            </button>
+                {# ── Ungrouped repos (no group, not a source-only repo) ── #}
+                {% for repo in app_config.remote_repos|sort(attribute='name') %}
+                    {% if not repo.group and repo.name not in source_only %}
+                        {{ repo_row(repo, repo_tags.get(repo.name, []), last_tags) }}
+                    {% endif %}
+                {% endfor %}
+
+                {# ── Grouped repos ── #}
+                {% for group_name in ns.groups %}
+                <tr>
+                    <td colspan="5" class="px-4 pt-5 pb-2">
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                            <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                {{ group_name }}
+                            </span>
+                            <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
                         </div>
                     </td>
                 </tr>
+                {% for repo in app_config.remote_repos|sort(attribute='name') %}
+                    {% if repo.group == group_name %}
+                        {{ repo_row(repo, repo_tags.get(repo.name, []), last_tags) }}
+                    {% endif %}
+                {% endfor %}
                 {% endfor %}
             </tbody>
         </table>

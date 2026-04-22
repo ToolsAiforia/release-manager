@@ -61,23 +61,30 @@ class RemoteRepo(BaseModel):
     added_at: datetime = Field(default_factory=datetime.now)
     last_synced: datetime | None = None
     local_path: str | None = None
+    source_repo: str | None = None
+    note: str | None = None
+    group: str | None = None
 
 
 class DeployComponent(BaseModel):
     name: str
     tag: str | None = None
     file: str | None = None
+    author: str | None = None
+    updated_at: str | None = None
 
 
 class DeploySnapshot(BaseModel):
     id: str
     cluster: str
+    name: str = ""
     created_at: datetime = Field(default_factory=datetime.now)
     components: list[DeployComponent] = Field(default_factory=list)
     commit_sha: str | None = None
     commit_url: str | None = None
     commit_message: str | None = None
     commit_date: str | None = None
+    infra: dict | None = None
 
 
 class AppConfig(BaseModel):

@@ -46,9 +46,17 @@ def create_app() -> FastAPI:
     templates.env.tests["bot"] = _is_bot
     app.state.templates = templates
     app.state.last_report = None
-    app.state.releases = []
-    app.state.deploy_snapshots = []
-    app.state.app_config = remote.load_config(settings.repos_dir)
+    app.state.releases = remote.load_releases(settings.repos_dir)
+    app.state.deploy_snapshots = remote.load_snapshots(settings.repos_dir)
+    config = remote.load_config(settings.repos_dir)
+    # Override credentials from env vars if set
+    if settings.git_token:
+        config.git_token = settings.git_token
+    if settings.git_username:
+        config.git_username = settings.git_username
+    if settings.linear_api_key:
+        config.linear_api_key = settings.linear_api_key
+    app.state.app_config = config
 
     app.include_router(router)
 

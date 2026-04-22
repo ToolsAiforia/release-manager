@@ -6,7 +6,10 @@ from urllib.parse import urlparse
 
 import git
 
-from release_manager.models import AppConfig, RemoteRepo
+from release_manager.models import AppConfig, DeploySnapshot, Release, RemoteRepo
+
+SNAPSHOTS_FILE = "snapshots.json"
+RELEASES_FILE = "releases.json"
 
 CONFIG_FILE = "config.json"
 
@@ -18,13 +21,40 @@ def _resolve_dir(repos_dir: str) -> Path:
     return path
 
 
+def _find_repos_json() -> Path | None:
+    """Find repos.json in the project directory (shipped with the code)."""
+    # Walk up from this file to find repos.json in project root
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        candidate = parent / "repos.json"
+        if candidate.exists():
+            return candidate
+        # Stop at src/ level
+        if (parent / "pyproject.toml").exists():
+            return candidate if candidate.exists() else None
+    return None
+
+
 def load_config(repos_dir: str) -> AppConfig:
-    """Load app config from JSON file. Returns defaults if file doesn't exist."""
+    """Load app config. Repos from repos.json (in project), secrets from env/config.json."""
     config_path = _resolve_dir(repos_dir) / CONFIG_FILE
+
+    # Start with config.json if it exists (has secrets + last_synced)
     if config_path.exists():
         data = json.loads(config_path.read_text(encoding="utf-8"))
-        return AppConfig(**data)
-    return AppConfig()
+        config = AppConfig(**data)
+    else:
+        config = AppConfig()
+
+    # If config has no repos, load from repos.json (shipped with project)
+    if not config.remote_repos:
+        repos_json = _find_repos_json()
+        if repos_json and repos_json.exists():
+            data = json.loads(repos_json.read_text(encoding="utf-8"))
+            repos = data.get("remote_repos", [])
+            config.remote_repos = [RemoteRepo(**r) for r in repos]
+
+    return config
 
 
 def save_config(repos_dir: str, config: AppConfig) -> None:
@@ -34,6 +64,38 @@ def save_config(repos_dir: str, config: AppConfig) -> None:
     config_path.write_text(
         json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+
+
+def load_snapshots(repos_dir: str) -> list[DeploySnapshot]:
+    """Load deploy snapshots from JSON file."""
+    path = _resolve_dir(repos_dir) / SNAPSHOTS_FILE
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return [DeploySnapshot(**s) for s in data]
+    return []
+
+
+def save_snapshots(repos_dir: str, snapshots: list[DeploySnapshot]) -> None:
+    """Save deploy snapshots to JSON file."""
+    path = _resolve_dir(repos_dir) / SNAPSHOTS_FILE
+    data = [s.model_dump(mode="json") for s in snapshots]
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def load_releases(repos_dir: str) -> list[Release]:
+    """Load releases from JSON file."""
+    path = _resolve_dir(repos_dir) / RELEASES_FILE
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return [Release(**r) for r in data]
+    return []
+
+
+def save_releases(repos_dir: str, releases: list[Release]) -> None:
+    """Save releases to JSON file."""
+    path = _resolve_dir(repos_dir) / RELEASES_FILE
+    data = [r.model_dump(mode="json") for r in releases]
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def repo_name_from_url(url: str) -> str:

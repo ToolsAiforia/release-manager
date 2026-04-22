@@ -9,6 +9,7 @@ build/
 *.csv
 *.json
 !package.json
+!repos.json
 .idea/
 .DS_Store
 uv.lock

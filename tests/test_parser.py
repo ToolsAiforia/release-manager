@@ -41,3 +41,40 @@ class TestExtractLinearKeys:
 
     def test_single_letter_prefix(self):
         assert extract_linear_keys("A-1 minimal key") == ["A-1"]
+
+    def test_blacklist_macos(self):
+        assert extract_linear_keys("supports MACOS-15 and MACOS-14") == []
+
+    def test_blacklist_http(self):
+        assert extract_linear_keys("HTTP-2 protocol") == []
+
+    def test_blacklist_mixed_with_real_keys(self):
+        result = extract_linear_keys("PLCORE-841 fix for MACOS-15 and UTF-8")
+        assert result == ["PLCORE-841"]
+
+    def test_blacklist_does_not_filter_real_keys(self):
+        result = extract_linear_keys("ATEAM-620 DDEV-333 TOOLS-39")
+        assert "ATEAM-620" in result
+        assert "DDEV-333" in result
+        assert "TOOLS-39" in result
+
+    def test_no_dash_format(self):
+        result = extract_linear_keys("Plcore 978 llm multilang")
+        assert "PLCORE-978" in result
+
+    def test_no_dash_format_uppercase(self):
+        result = extract_linear_keys("DDEV 333 fix something")
+        assert "DDEV-333" in result
+
+    def test_no_dash_mixed_with_standard(self):
+        result = extract_linear_keys("ATEAM-620 and Plcore 978")
+        assert "ATEAM-620" in result
+        assert "PLCORE-978" in result
+
+    def test_no_dash_blacklisted(self):
+        result = extract_linear_keys("MACOS 15 support")
+        assert result == []
+
+    def test_no_dash_dedup_with_standard(self):
+        result = extract_linear_keys("PLCORE-978 and Plcore 978")
+        assert result.count("PLCORE-978") == 1

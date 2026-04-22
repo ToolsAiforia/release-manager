@@ -63,6 +63,37 @@ class TestGetTags:
         assert by_name["some-random-tag"].is_release is False
 
     @patch("release_manager.services.git_ops.Repo")
+    def test_same_date_sorted_by_build_number_descending(self, mock_repo_cls):
+        same_ts = 1712000000  # same committed_date for all
+
+        tag1 = MagicMock()
+        tag1.name = "20260406-1"
+        tag1.tag = None
+        tag1.commit.committed_date = same_ts
+        tag1.commit.hexsha = "aaa"
+
+        tag2 = MagicMock()
+        tag2.name = "20260406-2"
+        tag2.tag = None
+        tag2.commit.committed_date = same_ts
+        tag2.commit.hexsha = "bbb"
+
+        tag3 = MagicMock()
+        tag3.name = "20260406-3"
+        tag3.tag = None
+        tag3.commit.committed_date = same_ts
+        tag3.commit.hexsha = "ccc"
+
+        mock_repo = MagicMock()
+        mock_repo.tags = [tag1, tag3, tag2]  # shuffled
+        mock_repo_cls.return_value = mock_repo
+
+        tags = get_tags("/fake/path")
+        assert tags[0].name == "20260406-3"  # highest build number first
+        assert tags[1].name == "20260406-2"
+        assert tags[2].name == "20260406-1"
+
+    @patch("release_manager.services.git_ops.Repo")
     def test_empty_tags(self, mock_repo_cls):
         mock_repo = MagicMock()
         mock_repo.tags = []

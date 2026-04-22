@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 
 from release_manager.models import (
     AppConfig,
+    CommitInfo,
     DeployComponent,
     DeploySnapshot,
     Release,
@@ -16,7 +17,7 @@ from release_manager.models import (
     RepoSelection,
     TagInfo,
 )
-from release_manager.services import deploy, exporter, git_ops, linear, remote, scanner
+from release_manager.services import deploy, exporter, git_ops, github_pr, linear, remote, scanner
 from release_manager.settings import settings
 
 router = APIRouter()
@@ -80,6 +81,15 @@ def _find_release(request: Request, release_id: str) -> Release | None:
     return None
 
 
+def _resolve_remote_repo_path(repo: RemoteRepo, config: AppConfig) -> str:
+    """Resolve filesystem path for a remote repo, following source_repo if set."""
+    if repo.source_repo:
+        for r in config.remote_repos:
+            if r.name == repo.source_repo:
+                return remote.get_repo_path(r.name, settings.repos_dir, r.local_path)
+    return remote.get_repo_path(repo.name, settings.repos_dir, repo.local_path)
+
+
 def _resolve_repo_path(
     repo_name: str, root_dir: str, request: Request
 ) -> str | None:
@@ -104,9 +114,9 @@ def _resolve_repo_path(
 async def index(request: Request):
     config: AppConfig = request.app.state.app_config
     return _templates(request).TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "default_root_dir": settings.default_root_dir,
             "active_page": "repos",
             "app_config": config,
@@ -118,9 +128,9 @@ async def index(request: Request):
 async def draft_page(request: Request):
     report: ReleaseReport | None = request.app.state.last_report
     return _templates(request).TemplateResponse(
+        request,
         "draft.html",
         {
-            "request": request,
             "report": report,
             "active_page": "draft",
         },
@@ -131,9 +141,9 @@ async def draft_page(request: Request):
 async def releases_page(request: Request):
     releases: list[Release] = request.app.state.releases
     return _templates(request).TemplateResponse(
+        request,
         "releases.html",
         {
-            "request": request,
             "releases": list(reversed(releases)),
             "active_page": "releases",
         },
@@ -145,9 +155,9 @@ async def deploy_page(request: Request):
     releases: list[Release] = request.app.state.releases
     snapshots: list[DeploySnapshot] = request.app.state.deploy_snapshots
     return _templates(request).TemplateResponse(
+        request,
         "deploy.html",
         {
-            "request": request,
             "releases": list(reversed(releases)),
             "snapshots": list(reversed(snapshots)),
             "active_page": "deploy",
@@ -176,9 +186,9 @@ async def release_diff_page(request: Request):
         }
 
     return _templates(request).TemplateResponse(
+        request,
         "release_diff.html",
         {
-            "request": request,
             "release_a": release_a,
             "release_b": release_b,
             "diff": diff,
@@ -191,9 +201,9 @@ async def release_diff_page(request: Request):
 async def release_detail_page(release_id: str, request: Request):
     release = _find_release(request, release_id)
     return _templates(request).TemplateResponse(
+        request,
         "release_detail.html",
         {
-            "request": request,
             "release": release,
             "active_page": "releases",
         },
@@ -278,6 +288,7 @@ async def api_create_release(request: Request):
         report=report,
     )
     request.app.state.releases.append(release)
+    remote.save_releases(settings.repos_dir, request.app.state.releases)
     return {"id": release.id, "name": release.name}
 
 
@@ -288,6 +299,7 @@ async def api_delete_release(release_id: str, request: Request):
     for i, rel in enumerate(releases):
         if rel.id == release_id:
             releases.pop(i)
+            remote.save_releases(settings.repos_dir, releases)
             return {"ok": True}
     return Response("Not found", status_code=404)
 
@@ -670,6 +682,57 @@ async def api_linear_issues(request: Request):
 # ── Deploy API ─────────────────────────────────────────────
 
 
+def _deploy_name_variants(repo_name: str) -> set[str]:
+    """Generate platform-deploy directory name variants for a repo name."""
+    variants = {repo_name}
+    if repo_name.endswith("-service"):
+        variants.add(repo_name.removesuffix("-service"))
+    if repo_name.endswith("-backend-service"):
+        variants.add(repo_name.removesuffix("-service"))
+    return variants
+
+
+def _supplement_from_repos(
+    components: list[dict], config: AppConfig
+) -> list[dict]:
+    """Add components from Repositories that are missing from deploy data."""
+    deploy_names = {c["name"] for c in components}
+
+    for r in config.remote_repos:
+        # Skip source-only repos (e.g. rasa used by action-server/rasa-oss)
+        if any(
+            other.source_repo == r.name for other in config.remote_repos
+        ) and r.name not in deploy_names:
+            continue
+        # Skip repos that are aliases (source_repo set) — handled separately
+        if r.source_repo:
+            continue
+        # Skip infra repos that aren't deployable components
+        if r.name in ("platform-deploy", "sip-deploy", "sip-proxy", "tl-chat-client"):
+            continue
+        # Check if any name variant is already in deploy data
+        variants = _deploy_name_variants(r.name)
+        if variants & deploy_names:
+            continue
+        # Missing — get latest tag from repo
+        repo_path = _resolve_remote_repo_path(r, config)
+        try:
+            tags = git_ops.get_tags(repo_path)
+            release_tags = [t for t in tags if t.is_release]
+            latest_tag = release_tags[0].name if release_tags else (
+                tags[0].name if tags else None
+            )
+        except Exception:
+            latest_tag = None
+        components.append({
+            "name": r.name,
+            "tag": latest_tag,
+            "file": "(from repo tags)",
+        })
+
+    return components
+
+
 @router.get("/api/deploy/versions")
 async def api_deploy_versions(request: Request):
     """Fetch deployed versions from platform-deploy repo."""
@@ -681,13 +744,35 @@ async def api_deploy_versions(request: Request):
     until = request.query_params.get("until")  # ISO date: 2026-03-15
     try:
         result = deploy.fetch_deployed_versions(
-            owner="ToolsAiforia",
+            owner="acclaim-ai",
             repo="platform-deploy",
             cluster_path=f"clusters/{cluster}",
             token=config.git_token,
             until=until,
         )
+        # Add components from Repositories that are missing in deploy
+        result["components"] = _supplement_from_repos(
+            result["components"], config
+        )
+        # Hide deprecated/infra components
+        hidden = {"llm-multiscenario-bot", "llm-voice-react-bot", "runpod-kubelet"}
+        result["components"] = [
+            c for c in result["components"] if c["name"] not in hidden
+        ]
         return result
+    except Exception as e:
+        return Response(f"Failed to fetch: {e}", status_code=500)
+
+
+@router.get("/api/deploy/infra")
+async def api_deploy_infra(request: Request):
+    """Fetch infra metadata: sip-deploy commit + FreeSwitch version."""
+    config: AppConfig = request.app.state.app_config
+    if not config.git_token:
+        return Response("GitHub token not configured", status_code=400)
+    until = request.query_params.get("until")
+    try:
+        return deploy.fetch_infra_info(config.git_token, until=until)
     except Exception as e:
         return Response(f"Failed to fetch: {e}", status_code=500)
 
@@ -697,20 +782,36 @@ async def api_save_deploy_snapshot(request: Request):
     """Save a deploy snapshot from the current data."""
     body = await request.json()
     components = [
-        DeployComponent(name=c["name"], tag=c.get("tag"), file=c.get("file"))
+        DeployComponent(
+            name=c["name"], tag=c.get("tag"), file=c.get("file"),
+            author=c.get("author"), updated_at=c.get("updated_at"),
+        )
         for c in body.get("components", [])
     ]
     commit = body.get("commit")
+    # Use commit date as snapshot date (not current time)
+    created_at = datetime.now()
+    raw_date = body.get("created_at")
+    if raw_date:
+        try:
+            created_at = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            pass
+
     snapshot = DeploySnapshot(
         id=uuid4().hex[:12],
         cluster=body.get("cluster", "aiphoria-qa"),
+        name=body.get("name", ""),
+        created_at=created_at,
         components=components,
         commit_sha=commit.get("sha") if commit else None,
         commit_url=commit.get("url") if commit else None,
         commit_message=commit.get("message") if commit else None,
         commit_date=commit.get("date") if commit else None,
+        infra=body.get("infra"),
     )
     request.app.state.deploy_snapshots.append(snapshot)
+    remote.save_snapshots(settings.repos_dir, request.app.state.deploy_snapshots)
     return {"id": snapshot.id}
 
 
@@ -728,6 +829,7 @@ async def api_delete_deploy_snapshot(snapshot_id: str, request: Request):
     for i, s in enumerate(snapshots):
         if s.id == snapshot_id:
             snapshots.pop(i)
+            remote.save_snapshots(settings.repos_dir, snapshots)
             return {"ok": True}
     return Response("Not found", status_code=404)
 
@@ -750,9 +852,9 @@ async def partial_repo_list(request: Request):
             repo_tags[repo.name] = []
 
     return _templates(request).TemplateResponse(
+        request,
         "partials/repo_list.html",
         {
-            "request": request,
             "repos": repos,
             "root_dir": root_dir,
             "repo_tags": repo_tags,
@@ -822,9 +924,9 @@ async def partial_fetch_and_reload(request: Request):
             repo_tags[repo.name] = []
 
     return _templates(request).TemplateResponse(
+        request,
         "partials/repo_list.html",
         {
-            "request": request,
             "repos": repos,
             "root_dir": root_dir,
             "repo_tags": repo_tags,
@@ -838,19 +940,21 @@ async def partial_remote_repo_list(request: Request):
     """Return the remote repos table with tags loaded."""
     config: AppConfig = request.app.state.app_config
     repo_tags: dict[str, list[TagInfo]] = {}
+    source_only = {r.source_repo for r in config.remote_repos if r.source_repo}
     for r in config.remote_repos:
-        repo_path = remote.get_repo_path(r.name, settings.repos_dir, r.local_path)
+        actual_path = _resolve_remote_repo_path(r, config)
         try:
-            repo_tags[r.name] = git_ops.get_tags(repo_path)
+            repo_tags[r.name] = git_ops.get_tags(actual_path)
         except Exception:
             repo_tags[r.name] = []
     return _templates(request).TemplateResponse(
+        request,
         "partials/remote_repo_list.html",
         {
-            "request": request,
             "app_config": config,
             "repo_tags": repo_tags,
             "last_tags": _last_release_tags(request),
+            "source_only": source_only,
         },
     )
 
@@ -887,25 +991,68 @@ async def partial_remote_collect_and_redirect(request: Request):
             headers={"HX-Reswap": "innerHTML", "HX-Retarget": "#remote-repo-list"},
         )
 
-    # Build report using clone paths instead of root_dir/name
-    # Build a lookup for local_path by repo name
+    # Build report using clone paths, resolving source_repo for aliases
     repo_lookup = {r.name: r for r in config.remote_repos}
     repo_reports: list[RepoReport] = []
     all_keys: set[str] = set()
     for sel in selections:
         entry = repo_lookup.get(sel.repo_name)
-        lp = entry.local_path if entry else None
-        repo_path = remote.get_repo_path(sel.repo_name, settings.repos_dir, lp)
+        if entry:
+            repo_path = _resolve_remote_repo_path(entry, config)
+        else:
+            repo_path = remote.get_repo_path(
+                sel.repo_name, settings.repos_dir, None
+            )
         commits = git_ops.get_commits_between_tags(
             repo_path, sel.from_tag, sel.to_tag
         )
+
+        # Enrich commits with Linear keys from merged PRs (bulk fetch)
+        all_pr_keys: list[str] = []
+        if config.git_token and entry and entry.url and commits:
+            owner_repo = github_pr.get_repo_owner_name(entry.url)
+            if owner_repo:
+                owner, repo_name_gh = owner_repo
+                from_date = min(c.date for c in commits).strftime("%Y-%m-%d")
+                to_date = max(c.date for c in commits).strftime("%Y-%m-%d")
+                commit_dicts = [c.model_dump() for c in commits]
+                pr_keys_map = github_pr.get_merged_pr_keys(
+                    owner, repo_name_gh, from_date, to_date, config.git_token
+                )
+                # Enrich matching commits
+                commit_shas = {cd["hash"] for cd in commit_dicts}
+                for sha, keys in pr_keys_map.items():
+                    if sha in commit_shas:
+                        for cd in commit_dicts:
+                            if cd["hash"] == sha:
+                                existing = set(cd.get("linear_keys", []))
+                                for k in keys:
+                                    if k not in existing:
+                                        cd.setdefault("linear_keys", []).append(k)
+                                break
+                commits = [CommitInfo(**cd) for cd in commit_dicts]
+                # Collect ALL keys from ALL merged PRs — 100% coverage
+                for keys in pr_keys_map.values():
+                    all_pr_keys.extend(keys)
+
         repo_keys: list[str] = []
         seen: set[str] = set()
+        # Keys from commit messages + matched PRs
         for c in commits:
             for k in c.linear_keys:
                 if k not in seen:
                     seen.add(k)
                     repo_keys.append(k)
+        # Keys from unmatched PRs (ensures 100% coverage)
+        for k in all_pr_keys:
+            if k not in seen:
+                seen.add(k)
+                repo_keys.append(k)
+        # Sort by prefix then number (PLCORE-986 before PLCORE-1008)
+        def _key_sort(k: str) -> tuple[str, int]:
+            parts = k.rsplit("-", 1)
+            return (parts[0], int(parts[1])) if len(parts) == 2 and parts[1].isdigit() else (k, 0)
+        repo_keys.sort(key=_key_sort)
         all_keys.update(repo_keys)
 
         repo_reports.append(
@@ -921,7 +1068,7 @@ async def partial_remote_collect_and_redirect(request: Request):
     report = ReleaseReport(
         generated_at=datetime.now(),
         root_dir=settings.repos_dir,
-        repos=repo_reports,
+        repos=sorted(repo_reports, key=lambda r: r.repo_name),
         all_linear_keys=sorted(all_keys),
     )
     request.app.state.last_report = report
@@ -933,6 +1080,8 @@ async def partial_remote_sync_all(request: Request):
     """Sync all remote repos, then return refreshed repo list."""
     config: AppConfig = request.app.state.app_config
     for r in config.remote_repos:
+        if r.source_repo:
+            continue  # alias — synced via source repo
         try:
             remote.sync_repo(
                 r.name, settings.repos_dir,
@@ -944,21 +1093,23 @@ async def partial_remote_sync_all(request: Request):
             pass
     remote.save_config(settings.repos_dir, config)
 
+    source_only = {r.source_repo for r in config.remote_repos if r.source_repo}
     repo_tags: dict[str, list[TagInfo]] = {}
     for r in config.remote_repos:
-        repo_path = remote.get_repo_path(r.name, settings.repos_dir, r.local_path)
+        actual_path = _resolve_remote_repo_path(r, config)
         try:
-            repo_tags[r.name] = git_ops.get_tags(repo_path)
+            repo_tags[r.name] = git_ops.get_tags(actual_path)
         except Exception:
             repo_tags[r.name] = []
 
     return _templates(request).TemplateResponse(
+        request,
         "partials/remote_repo_list.html",
         {
-            "request": request,
             "app_config": config,
             "repo_tags": repo_tags,
             "last_tags": _last_release_tags(request),
+            "source_only": source_only,
         },
     )
 
@@ -980,6 +1131,7 @@ async def partial_refresh_report(request: Request):
     report = _build_report(last.root_dir, selections)
     request.app.state.last_report = report
     return _templates(request).TemplateResponse(
+        request,
         "partials/report_content.html",
-        {"request": request, "report": report, "export_base": "/api/export"},
+        {"report": report, "export_base": "/api/export"},
     )

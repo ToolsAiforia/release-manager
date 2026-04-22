@@ -9,10 +9,14 @@
                 bg-indigo-50/50 dark:bg-indigo-500/5">
         <p class="text-xs leading-relaxed text-gray-600 dark:text-gray-400">
             <span class="font-semibold text-gray-800 dark:text-gray-200">Deploy Tracker</span> &mdash;
-            фиксация версий компонентов на окружении. Позволяет точно знать, какие версии были протестированы
-            и что передавать заказчику. Сделайте <span class="font-medium text-gray-800 dark:text-gray-200">Snapshot</span>,
-            чтобы сохранить текущее состояние, или <span class="font-medium text-gray-800 dark:text-gray-200">Copy MD</span>,
-            чтобы вставить таблицу в Linear-тикет. Сравните с релизом, чтобы увидеть расхождения.
+            a snapshot of cluster component versions as of the selected date.
+            <span class="font-medium text-gray-800 dark:text-gray-200">Author</span> and
+            <span class="font-medium text-gray-800 dark:text-gray-200">Updated</span> show who changed the image tag
+            in platform-deploy and when.
+            Click <span class="font-medium text-gray-800 dark:text-gray-200">Load</span> to fetch versions,
+            select components, then
+            <span class="font-medium text-gray-800 dark:text-gray-200">Save</span> to keep the snapshot in history.
+            <span class="font-medium text-gray-800 dark:text-gray-200">Copy MD</span> copies the table for pasting into Linear.
         </p>
     </div>
 
@@ -34,6 +38,19 @@
                 <option value="aiphoria-qa" selected>aiphoria-qa</option>
             </select>
 
+            <!-- Release number -->
+            <div class="flex items-center gap-1">
+                <span class="text-xs text-gray-500 dark:text-gray-400">Release&nbsp;#</span>
+                <input type="number" id="snapshot-name"
+                       placeholder="24"
+                       min="1"
+                       class="px-2 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700
+                              bg-white dark:bg-[#1a1d26] text-gray-700 dark:text-gray-300
+                              placeholder-gray-400 dark:placeholder-gray-500
+                              focus:outline-none focus:ring-2 focus:ring-indigo-500/40 w-16 text-center"
+                       title="Release number">
+            </div>
+
             <!-- Date picker -->
             <input type="date" id="deploy-date"
                    class="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700
@@ -53,31 +70,16 @@
 
             <div class="w-px h-6 bg-gray-200 dark:bg-gray-700"></div>
 
-            <!-- Compare with release -->
-            {% if releases %}
-            <select id="compare-release"
-                    onchange="rerender()"
-                    class="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700
-                           bg-white dark:bg-[#1a1d26] text-gray-700 dark:text-gray-300
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
-                <option value="">Compare with release...</option>
-                {% for rel in releases %}
-                <option value="{{ rel.id }}">{{ rel.name }}</option>
-                {% endfor %}
-            </select>
-            {% endif %}
-
-            <!-- Save Snapshot -->
-            <button onclick="saveSnapshot()"
-                    class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
+            <!-- Save Release (hidden until Load) -->
+            <button id="save-release-btn" onclick="saveRelease()"
+                    class="hidden inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
                            border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-[#1a1d26]
                            text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10
                            transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                Snapshot
+                Save Release
             </button>
 
             <!-- Copy as Markdown -->
@@ -99,15 +101,68 @@
                 bg-gray-50/50 dark:bg-[#1a1d26]">
     </div>
 
-    <!-- Summary -->
-    <div id="summary" class="hidden mb-4"></div>
-
     <!-- Table -->
     <div id="deploy-table" class="rounded-xl border border-gray-200 dark:border-gray-800
                 bg-white dark:bg-[#1a1d26] overflow-hidden">
         <div class="text-center py-16">
-            <p class="text-sm text-gray-400 dark:text-gray-500">Select a date and click <strong>Load</strong> to fetch deployed versions.</p>
-            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Leave date empty for the latest state.</p>
+            <p class="text-sm text-gray-400 dark:text-gray-500">Enter release number and click <strong>Load</strong> to fetch deployed versions.</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Empty date = latest state. With date = state as of that day. After loading, select components and click <strong>Save Release</strong> to save to history.</p>
+        </div>
+    </div>
+
+    <!-- Infrastructure info -->
+    <div id="infra-section" class="hidden mt-6 space-y-4">
+
+        <!-- Platform-deploy commit -->
+        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Platform-deploy commit
+                </h3>
+            </div>
+            <div id="infra-platform-deploy" class="px-4 py-3 text-xs text-gray-500">—</div>
+        </div>
+
+        <!-- Ansible (sip-deploy) -->
+        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Ansible (sip-deploy)
+                </h3>
+            </div>
+            <div id="infra-sip-deploy" class="px-4 py-3 text-xs text-gray-500">—</div>
+        </div>
+
+        <!-- Triton Models -->
+        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Triton Models
+                </h3>
+            </div>
+            <div class="px-4 py-3">
+                <div class="grid grid-cols-3 gap-x-6 gap-y-0.5 text-xs font-mono text-gray-600 dark:text-gray-400">
+                    <!-- General -->
+                    <div class="col-span-3 pt-1 pb-1 text-[10px] font-sans font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">General</div>
+                    <div>hlir/v2/20250429-1</div>
+                    <div>embedder/v3/20250522-1</div>
+                    <div>qwin/v1/20250605-1</div>
+                    <div>qwen3/v1/20250806-1</div>
+                    <div>bge-m3-embedder/v4/20251002-1</div>
+                    <div>censor/v3/20251230-1</div>
+                    <!-- RU -->
+                    <div class="col-span-3 pt-2 pb-1 text-[10px] font-sans font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">RU</div>
+                    <div>asr/ru/v13-l4/20260122-1</div>
+                    <div>tts/ru/v6-l4/20251107-1</div>
+                    <div>normalization/ru/v1/20250605-1</div>
+                    <!-- UZ -->
+                    <div class="col-span-3 pt-2 pb-1 text-[10px] font-sans font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">UZ</div>
+                    <div>asr/uz/v14-l4/20251125-1</div>
+                    <div>tts/uz/v7-l4/20251030-1</div>
+                    <div>normalization/uz/v1/20250605-1</div>
+                    <div>gender-tagger/uz/v1/20250605-1</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -125,6 +180,12 @@
                         <svg class="chevron w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
                         </svg>
+                        {% if snap.name %}
+                        <span class="inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full
+                                     bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
+                            {{ snap.name }}
+                        </span>
+                        {% endif %}
                         <span class="text-xs font-semibold text-gray-900 dark:text-gray-100">
                             {{ snap.cluster }}
                         </span>
@@ -145,29 +206,80 @@
                     </button>
                 </div>
                 <div class="hidden">
-                    <table class="w-full text-left" style="table-layout:fixed">
+                    <table class="w-full text-left">
                         <colgroup>
-                            <col style="width:240px">
-                            <col>
-                            <col style="width:160px">
+                            <col style="width:180px"><col style="width:160px">
+                            <col style="width:160px"><col style="width:110px"><col style="width:180px">
                         </colgroup>
                         <thead>
                             <tr class="border-t border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
                                 <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">Component</th>
                                 <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">Tag</th>
+                                <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">Author</th>
+                                <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">Updated</th>
                                 <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">File</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            {% for comp in snap.components %}
+                            {% set rasa_names = ['rasa', 'rasa-model-server', 'rasa-scenario-manager', 'rasa-oss'] %}
+                            {% for comp in snap.components if comp.name not in rasa_names %}
                             <tr class="hover:bg-gray-50/50 dark:hover:bg-[#252830]/50 {{ 'opacity-40' if not comp.tag }}">
                                 <td class="px-4 py-1.5 text-xs font-medium text-gray-900 dark:text-gray-100">{{ comp.name }}</td>
                                 <td class="px-4 py-1.5 text-xs font-mono text-gray-600 dark:text-gray-400">{{ comp.tag or '—' }}</td>
+                                <td class="px-4 py-1.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ comp.author or '—' }}</td>
+                                <td class="px-4 py-1.5 text-xs text-gray-400 whitespace-nowrap">{{ comp.updated_at or '—' }}</td>
                                 <td class="px-4 py-1.5 text-xs text-gray-400 truncate">{{ comp.file or '—' }}</td>
                             </tr>
                             {% endfor %}
+                            {% set rasa_comps = snap.components|selectattr('name', 'in', rasa_names)|list %}
+                            {% if rasa_comps %}
+                            <tr><td colspan="5" class="px-4 pt-5 pb-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                                    <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">RASA</span>
+                                    <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                                </div>
+                            </td></tr>
+                            {% for comp in rasa_comps %}
+                            <tr class="hover:bg-gray-50/50 dark:hover:bg-[#252830]/50 {{ 'opacity-40' if not comp.tag }}">
+                                <td class="px-4 py-1.5 text-xs font-medium text-gray-900 dark:text-gray-100">{{ 'action-server' if comp.name == 'rasa' else 'sip-proxy (ws2grpc)' if comp.name == 'sip-proxy' else comp.name }}</td>
+                                <td class="px-4 py-1.5 text-xs font-mono text-gray-600 dark:text-gray-400">{{ comp.tag or '—' }}</td>
+                                <td class="px-4 py-1.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ comp.author or '—' }}</td>
+                                <td class="px-4 py-1.5 text-xs text-gray-400 whitespace-nowrap">{{ comp.updated_at or '—' }}</td>
+                                <td class="px-4 py-1.5 text-xs text-gray-400 truncate">{{ comp.file or '—' }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% endif %}
                         </tbody>
                     </table>
+                    {% if snap.infra %}
+                    <div class="mt-4 space-y-4 px-2 pb-3">
+                        {% if snap.infra.platform_deploy %}
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden">
+                            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
+                                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Platform-deploy commit</h3>
+                            </div>
+                            <div class="px-4 py-3 text-xs">{{ snap.infra.platform_deploy|safe }}</div>
+                        </div>
+                        {% endif %}
+                        {% if snap.infra.sip_deploy %}
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden">
+                            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
+                                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Ansible (sip-deploy)</h3>
+                            </div>
+                            <div class="px-4 py-3 text-xs">{{ snap.infra.sip_deploy|safe }}</div>
+                        </div>
+                        {% endif %}
+                        {% if snap.infra.triton_models %}
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden">
+                            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
+                                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Triton Models</h3>
+                            </div>
+                            <div class="px-4 py-3">{{ snap.infra.triton_models|safe }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -181,30 +293,13 @@
 </div>
 
 <script>
-// Release data for comparison
-const _releases = {
-    {% for rel in releases %}
-    '{{ rel.id }}': {
-        name: '{{ rel.name }}',
-        components: {
-            {% for repo in rel.report.repos %}
-            '{{ repo.repo_name }}': { from_tag: '{{ repo.from_tag }}', to_tag: '{{ repo.to_tag }}' },
-            {% endfor %}
-        }
-    },
-    {% endfor %}
-};
-
 let _deployData = null;
+let _infraData = null;
 
 function escapeHtml(str) {
     const d = document.createElement('div');
     d.textContent = str;
     return d.innerHTML;
-}
-
-function rerender() {
-    if (_deployData) renderTable(_deployData);
 }
 
 function renderTable(data) {
@@ -230,88 +325,241 @@ function renderTable(data) {
             </div>`;
     }
 
-    // Get selected release for comparison
-    const relSelect = document.getElementById('compare-release');
-    const relId = relSelect ? relSelect.value : '';
-    const rel = relId ? _releases[relId] : null;
-
     // Build table
-    let html = `<table class="w-full text-left" style="table-layout:fixed">
+    const colCount = 6;
+    let html = `<table class="w-full text-left" id="deploy-components-table">
         <colgroup>
-            <col style="width:220px">
-            <col style="width:140px">
-            <col style="width:140px">
-            <col>
-            <col style="width:100px">
+            <col style="width:40px">
+            <col style="width:180px">
+            <col style="width:160px">
+            <col style="width:160px">
+            <col style="width:110px">
+            <col style="width:180px">
         </colgroup>
         <thead>
             <tr class="border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
+                <th class="px-4 py-2.5 w-10">
+                    <input type="checkbox" onchange="toggleAllDeploy(this)" checked
+                           class="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600
+                                  text-indigo-500 focus:ring-indigo-500/40 cursor-pointer
+                                  bg-white dark:bg-[#0f1117]">
+                </th>
                 <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">Component</th>
-                <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">Deployed</th>
-                <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">${rel ? escapeHtml(_releases[relId].name) : 'Release'}</th>
+                <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">Tag</th>
+                <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">Author</th>
+                <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">Updated</th>
                 <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">Source File</th>
-                <th class="px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">Status</th>
             </tr>
         </thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">`;
 
-    let matched = 0, differs = 0, notInRelease = 0;
+    const sortByName = (a, b) => a.name.localeCompare(b.name);
+    const mainComps = data.components.filter(c => !RASA_NAMES.has(c.name)).sort(sortByName);
+    const rasaComps = data.components.filter(c => RASA_NAMES.has(c.name)).sort(sortByName);
 
-    for (const comp of data.components) {
+    function renderCompRow(comp) {
         const deployedTag = comp.tag || '—';
-        const relComp = rel ? rel.components[comp.name] : null;
-        const releaseTag = relComp ? relComp.to_tag : '—';
+        const displayName = comp.name === 'rasa' ? 'action-server' : comp.name === 'sip-proxy' ? 'sip-proxy (ws2grpc)' : comp.name;
 
-        let statusBadge = '';
-        let rowClass = '';
-
-        if (rel && relComp) {
-            if (comp.tag === relComp.to_tag) {
-                matched++;
-                statusBadge = `<span class="inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full
-                                      bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-                                   Matched</span>`;
-            } else {
-                differs++;
-                statusBadge = `<span class="inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full
-                                      bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                                   Differs</span>`;
-            }
-        } else if (rel) {
-            notInRelease++;
-            rowClass = 'opacity-40';
-        }
-
-        html += `<tr class="hover:bg-gray-50/50 dark:hover:bg-[#252830]/50 ${rowClass}">
-            <td class="px-4 py-2.5 text-xs font-medium text-gray-900 dark:text-gray-100">${escapeHtml(comp.name)}</td>
-            <td class="px-4 py-2.5 text-xs font-mono text-gray-600 dark:text-gray-400">${escapeHtml(deployedTag)}</td>
-            <td class="px-4 py-2.5 text-xs font-mono text-gray-600 dark:text-gray-400">${escapeHtml(releaseTag)}</td>
-            <td class="px-4 py-2.5 text-xs text-gray-400 dark:text-gray-500 truncate">${comp.file ? escapeHtml(comp.file) : '—'}</td>
-            <td class="px-4 py-2.5">${statusBadge}</td>
+        return `<tr class="hover:bg-gray-50/50 dark:hover:bg-[#252830]/50">
+            <td class="px-4 py-1.5">
+                <input type="checkbox" class="deploy-cb" data-comp="${escapeHtml(comp.name)}" checked
+                       class="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600
+                              text-indigo-500 focus:ring-indigo-500/40 cursor-pointer
+                              bg-white dark:bg-[#0f1117]">
+            </td>
+            <td class="px-4 py-1.5 text-xs font-medium text-gray-900 dark:text-gray-100">${escapeHtml(displayName)}</td>
+            <td class="px-4 py-1.5 text-xs font-mono text-gray-600 dark:text-gray-400">${escapeHtml(deployedTag)}</td>
+            <td class="px-4 py-1.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">${comp.author ? escapeHtml(comp.author) : '—'}</td>
+            <td class="px-4 py-1.5 text-xs text-gray-400 whitespace-nowrap">${comp.updated_at ? escapeHtml(comp.updated_at) : '—'}</td>
+            <td class="px-4 py-1.5 text-xs text-gray-400 dark:text-gray-500 truncate">${comp.file ? escapeHtml(comp.file) : '—'}</td>
         </tr>`;
+    }
+
+    for (const comp of mainComps) {
+        html += renderCompRow(comp);
+    }
+
+    if (rasaComps.length > 0) {
+        html += `<tr>
+            <td></td>
+            <td colspan="${colCount - 1}" class="px-4 pt-5 pb-2">
+                <div class="flex items-center gap-3">
+                    <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">RASA</span>
+                    <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                </div>
+            </td>
+        </tr>`;
+        for (const comp of rasaComps) {
+            html += renderCompRow(comp);
+        }
     }
 
     html += '</tbody></table>';
     table.innerHTML = html;
 
-    // Summary
-    if (rel) {
-        const total = matched + differs;
-        summary.classList.remove('hidden');
-        summary.innerHTML = `
-            <div class="flex items-center gap-4 text-xs">
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10
-                             text-emerald-700 dark:text-emerald-400 font-medium">
-                    ${matched}/${total} matched
-                </span>
-                ${differs > 0 ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10
-                             text-amber-700 dark:text-amber-400 font-medium">
-                    ${differs} differ
-                </span>` : ''}
-                <span class="text-gray-400">${data.components.length} total components</span>
-            </div>`;
-    } else {
-        summary.classList.add('hidden');
+}
+
+function toggleAllDeploy(source) {
+    document.querySelectorAll('.deploy-cb').forEach(cb => cb.checked = source.checked);
+}
+
+async function saveRelease() {
+    if (!_deployData) { showToast('Load versions first', 'error'); return; }
+
+    const cluster = document.getElementById('cluster-select').value;
+    const nameInput = document.getElementById('snapshot-name');
+    const releaseNum = nameInput ? nameInput.value.trim() : '';
+    const snapshotName = releaseNum ? `Release ${releaseNum}` : '';
+
+    // Only include checked components
+    const checkedNames = new Set();
+    document.querySelectorAll('.deploy-cb:checked').forEach(cb => {
+        checkedNames.add(cb.dataset.comp);
+    });
+    const selectedComponents = _deployData.components.filter(c => checkedNames.has(c.name));
+
+    if (selectedComponents.length === 0) {
+        showToast('Select at least one component', 'error');
+        return;
     }
+
+    // Collect infra data from the page
+    const infra = {};
+    const pdEl = document.getElementById('infra-platform-deploy');
+    if (pdEl && pdEl.innerHTML.trim() !== '—') infra.platform_deploy = pdEl.innerHTML;
+    const sdEl = document.getElementById('infra-sip-deploy');
+    if (sdEl && sdEl.innerHTML.trim() !== '—') infra.sip_deploy = sdEl.innerHTML;
+    const tritonEl = document.querySelector('#infra-section .grid.grid-cols-3');
+    if (tritonEl) infra.triton_models = tritonEl.outerHTML;
+
+    try {
+        const resp = await fetch('/api/deploy/snapshots', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                cluster,
+                name: snapshotName,
+                components: selectedComponents,
+                commit: _deployData.commit,
+                infra,
+                created_at: document.getElementById('deploy-date').value || new Date().toISOString().slice(0, 10),
+            })
+        });
+        if (resp.ok) {
+            showToast(`${snapshotName || 'Release'} saved`, 'success');
+            const listResp = await fetch('/api/deploy/snapshots');
+            if (listResp.ok) {
+                const snapshots = await listResp.json();
+                renderSnapshotsList(snapshots);
+            }
+        } else {
+            showToast('Failed to save', 'error');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+const RASA_NAMES = new Set(['rasa', 'rasa-model-server', 'rasa-scenario-manager', 'rasa-oss']);
+
+function renderSnapshotRows(components) {
+    const main = components.filter(c => !RASA_NAMES.has(c.name));
+    const rasa = components.filter(c => RASA_NAMES.has(c.name));
+    const row = (c, displayName) => `
+        <tr class="hover:bg-gray-50/50 dark:hover:bg-[#252830]/50 ${c.tag ? '' : 'opacity-40'}">
+            <td class="px-4 py-1.5 text-xs font-medium text-gray-900 dark:text-gray-100">${escapeHtml(displayName || c.name)}</td>
+            <td class="px-4 py-1.5 text-xs font-mono text-gray-600 dark:text-gray-400">${c.tag ? escapeHtml(c.tag) : '—'}</td>
+            <td class="px-4 py-1.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">${c.author ? escapeHtml(c.author) : '—'}</td>
+            <td class="px-4 py-1.5 text-xs text-gray-400 whitespace-nowrap">${c.updated_at ? escapeHtml(c.updated_at) : '—'}</td>
+            <td class="px-4 py-1.5 text-xs text-gray-400 truncate">${c.file ? escapeHtml(c.file) : '—'}</td>
+        </tr>`;
+    let html = main.map(c => row(c)).join('');
+    if (rasa.length) {
+        html += `<tr><td colspan="5" class="px-4 pt-5 pb-2">
+            <div class="flex items-center gap-3">
+                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">RASA</span>
+                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+            </div></td></tr>`;
+        html += rasa.map(c => row(c, c.name === 'rasa' ? 'action-server' : null)).join('');
+    }
+    return html;
+}
+
+function renderSnapshotsList(snapshots) {
+    const container = document.getElementById('snapshots-list');
+    if (!snapshots.length) {
+        container.innerHTML = '<p id="no-snapshots" class="text-xs text-gray-400 dark:text-gray-500">No snapshots yet.</p>';
+        return;
+    }
+    let html = '';
+    for (const snap of snapshots) {
+        const date = snap.created_at ? snap.created_at.substring(0, 16).replace('T', ' ') : '';
+        html += `
+        <div class="mb-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden"
+             id="snapshot-${escapeHtml(snap.id)}">
+            <div onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-90')"
+                 class="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-[#252830] transition-colors cursor-pointer select-none">
+                <div class="flex items-center gap-3">
+                    <svg class="chevron w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+                    </svg>
+                    ${snap.name ? `<span class="inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">${escapeHtml(snap.name)}</span>` : ''}
+                    <span class="text-xs font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(snap.cluster)}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(date)}</span>
+                    ${snap.commit_sha ? `<span class="text-xs font-mono text-indigo-500">${escapeHtml(snap.commit_sha)}</span>` : ''}
+                    <span class="text-[10px] text-gray-400">${snap.components.length} components</span>
+                </div>
+                <button onclick="event.stopPropagation(); deleteSnapshot('${escapeHtml(snap.id)}')"
+                        class="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                        title="Delete snapshot">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="hidden">
+                <table class="w-full text-left">
+                    <colgroup>
+                        <col style="width:180px"><col style="width:160px">
+                        <col style="width:160px"><col style="width:110px"><col style="width:180px">
+                    </colgroup>
+                    <thead>
+                        <tr class="border-t border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
+                            <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">Component</th>
+                            <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">Tag</th>
+                            <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">Author</th>
+                            <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">Updated</th>
+                            <th class="px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-500">File</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        ${renderSnapshotRows(snap.components)}
+                    </tbody>
+                </table>
+                ${snap.infra ? renderSnapshotInfra(snap.infra) : ''}
+            </div>
+        </div>`;
+    }
+    container.innerHTML = html;
+}
+
+function renderSnapshotInfra(infra) {
+    const card = (title, content) => `
+        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1a1d26] overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0f1117]/50">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">${title}</h3>
+            </div>
+            <div class="px-4 py-3 text-xs">${content}</div>
+        </div>`;
+
+    let html = '<div class="mt-4 space-y-4 px-2">';
+    if (infra.platform_deploy) html += card('Platform-deploy commit', infra.platform_deploy);
+    if (infra.sip_deploy) html += card('Ansible (sip-deploy)', infra.sip_deploy);
+    if (infra.triton_models) html += card('Triton Models', `<div class="px-0 py-0">${infra.triton_models}</div>`);
+    html += '</div>';
+    return html;
 }
 
 async function loadVersions() {
@@ -332,16 +580,91 @@ async function loadVersions() {
     if (dateVal) url += `&until=${encodeURIComponent(dateVal)}`;
 
     try {
-        const resp = await fetch(url);
-        if (!resp.ok) {
-            const text = await resp.text();
+        // Fetch versions and infra in parallel
+        const [versionsResp, infraResp] = await Promise.all([
+            fetch(url),
+            fetch(`/api/deploy/infra${dateVal ? '?until=' + encodeURIComponent(dateVal) : ''}`),
+        ]);
+
+        if (!versionsResp.ok) {
+            const text = await versionsResp.text();
             table.innerHTML = `<div class="text-center py-12">
                 <p class="text-sm text-red-500">${escapeHtml(text)}</p>
             </div>`;
             return;
         }
-        _deployData = await resp.json();
+
+        _deployData = await versionsResp.json();
         renderTable(_deployData);
+
+        // Render infra
+        const infraSection = document.getElementById('infra-section');
+        infraSection.classList.remove('hidden');
+
+        // Platform-deploy commit (from versions response)
+        const pdEl = document.getElementById('infra-platform-deploy');
+        if (_deployData.commit) {
+            const c = _deployData.commit;
+            const treeUrl = `https://github.com/acclaim-ai/platform-deploy/tree/${c.full_sha}/clusters/${cluster}`;
+            pdEl.innerHTML = `
+                <div class="flex items-center gap-2 text-xs">
+                    <a href="${escapeHtml(c.url)}" target="_blank"
+                       class="font-mono text-indigo-500 hover:underline">${escapeHtml(c.sha)}</a>
+                    <span class="text-gray-400">|</span>
+                    <span class="text-gray-600 dark:text-gray-400">${escapeHtml(c.message)}</span>
+                    <span class="text-gray-400">|</span>
+                    <span class="text-gray-400">${escapeHtml(c.date.substring(0, 10))}</span>
+                    <span class="text-gray-400">|</span>
+                    <a href="${escapeHtml(treeUrl)}" target="_blank"
+                       class="text-indigo-500 hover:underline">clusters/${escapeHtml(cluster)}/</a>
+                </div>`;
+        }
+
+        // Infra data
+        if (infraResp.ok) {
+            const infra = await infraResp.json();
+            _infraData = infra;
+
+            // sip-deploy commit
+            const sdEl = document.getElementById('infra-sip-deploy');
+            if (infra.sip_deploy) {
+                const sd = infra.sip_deploy;
+                sdEl.innerHTML = `
+                    <div class="flex items-center gap-2 text-xs">
+                        <a href="${escapeHtml(sd.tree_url)}" target="_blank"
+                           class="font-mono text-indigo-500 hover:underline">${escapeHtml(sd.sha)}</a>
+                        <span class="text-gray-400">|</span>
+                        <span class="text-gray-600 dark:text-gray-400">${escapeHtml(sd.message)}</span>
+                        <span class="text-gray-400">|</span>
+                        <span class="text-gray-400">${escapeHtml(sd.date.substring(0, 10))}</span>
+                    </div>`;
+            }
+
+            // Add sip-deploy, sip-proxy and freeswitch to main table
+            if (infra.sip_deploy_tag) {
+                _deployData.components.push({
+                    name: 'sip-deploy', tag: infra.sip_deploy_tag,
+                    file: 'sip-deploy repo tag', author: null, updated_at: null,
+                });
+            }
+            if (infra.sip_proxy_version) {
+                _deployData.components.push({
+                    name: 'sip-proxy', tag: infra.sip_proxy_version,
+                    file: 'playbook.yml (adapter_git_version)', author: null, updated_at: null,
+                });
+            }
+            if (infra.freeswitch_version) {
+                _deployData.components.push({
+                    name: 'freeswitch', tag: infra.freeswitch_version,
+                    file: 'ansible-role-fsgrpc/defaults/main.yml', author: null, updated_at: null,
+                });
+            }
+            // Re-render table with sip components added
+            renderTable(_deployData);
+        }
+        // Show Save Release button
+        document.getElementById('save-release-btn').classList.remove('hidden');
+
     } catch (e) {
         table.innerHTML = `<div class="text-center py-12">
             <p class="text-sm text-red-500">${escapeHtml(e.message)}</p>
@@ -353,47 +676,86 @@ function copyAsMarkdown() {
     if (!_deployData) return;
 
     const cluster = document.getElementById('cluster-select').value;
-    const relSelect = document.getElementById('compare-release');
-    const relId = relSelect ? relSelect.value : '';
-    const rel = relId ? _releases[relId] : null;
+    const nameInput = document.getElementById('snapshot-name');
+    const releaseNum = nameInput ? nameInput.value.trim() : '';
+
+    // Split into main + RASA, same as table
+    const mainComps = _deployData.components.filter(c => !RASA_NAMES.has(c.name));
+    const rasaComps = _deployData.components.filter(c => RASA_NAMES.has(c.name));
+
+    // Collect rows with display name
+    function makeRow(comp) {
+        const displayName = comp.name === 'rasa' ? 'action-server' : comp.name === 'sip-proxy' ? 'sip-proxy (ws2grpc)' : comp.name;
+        return {
+            name: displayName,
+            tag: comp.tag || '—',
+            author: comp.author || '—',
+            updated: comp.updated_at || '—',
+        };
+    }
+
+    const mainRows = mainComps.map(makeRow);
+    const rasaRows = rasaComps.map(makeRow);
+    const allRows = [...mainRows, ...rasaRows];
 
     const pad = (s, n) => s + ' '.repeat(Math.max(0, n - s.length));
 
-    // Collect rows
-    const rows = [];
-    for (const comp of _deployData.components) {
-        const deployed = comp.tag || '—';
-        const relComp = rel ? rel.components[comp.name] : null;
-        const releaseTag = relComp ? relComp.to_tag : '—';
-        let status = '';
-        if (rel && relComp) {
-            status = comp.tag === relComp.to_tag ? 'OK' : 'DIFF';
-        }
-        rows.push({name: comp.name, deployed, releaseTag, status});
-    }
-
-    // Calculate column widths
-    const hdr = {name: 'Component', deployed: 'Deployed', releaseTag: rel ? _releases[relId].name : 'Release', status: 'Status'};
-    const w = {
-        name: Math.max(hdr.name.length, ...rows.map(r => r.name.length)),
-        deployed: Math.max(hdr.deployed.length, ...rows.map(r => r.deployed.length)),
-        releaseTag: Math.max(hdr.releaseTag.length, ...rows.map(r => r.releaseTag.length)),
-        status: Math.max(hdr.status.length, ...rows.map(r => r.status.length)),
-    };
-
     let md = '';
 
-    // Header
+    // Title
+    if (releaseNum) md += `## Release ${releaseNum}\n\n`;
+
+    // Commit info
     if (_deployData.commit) {
         md += `> Cluster: \`${cluster}\` | Commit: [${_deployData.commit.sha}](${_deployData.commit.url}) | ${_deployData.commit.date.substring(0, 10)}\n\n`;
     }
 
-    md += `| ${pad(hdr.name, w.name)} | ${pad(hdr.deployed, w.deployed)} | ${pad(hdr.releaseTag, w.releaseTag)} | ${pad(hdr.status, w.status)} |\n`;
-    md += `| ${'-'.repeat(w.name)} | ${'-'.repeat(w.deployed)} | ${'-'.repeat(w.releaseTag)} | ${'-'.repeat(w.status)} |\n`;
+    // Column widths
+    const cols = ['name', 'tag', 'author', 'updated'];
+    const headers = {name: 'Component', tag: 'Tag', author: 'Author', updated: 'Updated'};
+    const w = {};
+    for (const c of cols) w[c] = Math.max(headers[c].length, ...allRows.map(r => (r[c] || '').length));
 
-    for (const r of rows) {
-        md += `| ${pad(r.name, w.name)} | ${pad(r.deployed, w.deployed)} | ${pad(r.releaseTag, w.releaseTag)} | ${pad(r.status, w.status)} |\n`;
+    // Table header
+    md += '| ' + cols.map(c => pad(headers[c], w[c])).join(' | ') + ' |\n';
+    md += '| ' + cols.map(c => '-'.repeat(w[c])).join(' | ') + ' |\n';
+
+    // Main rows
+    for (const r of mainRows) {
+        md += '| ' + cols.map(c => pad(r[c] || '', w[c])).join(' | ') + ' |\n';
     }
+
+    // RASA section
+    if (rasaRows.length) {
+        md += '| ' + pad('**RASA**', w.name) + ' | ' + cols.slice(1).map(c => ' '.repeat(w[c])).join(' | ') + ' |\n';
+        for (const r of rasaRows) {
+            md += '| ' + cols.map(c => pad(r[c] || '', w[c])).join(' | ') + ' |\n';
+        }
+    }
+
+    // Infra section
+    const pdEl = document.getElementById('infra-platform-deploy');
+    const sdEl = document.getElementById('infra-sip-deploy');
+
+    md += '\n---\n\n';
+    md += '**Infrastructure**\n\n';
+
+    if (pdEl && pdEl.textContent.trim() !== '—') {
+        md += `- **Platform-deploy commit:** ${pdEl.textContent.trim().split('|').map(s => s.trim()).join(' | ')}\n`;
+    }
+    if (sdEl && sdEl.textContent.trim() !== '—') {
+        md += `- **Ansible (sip-deploy):** ${sdEl.textContent.trim().split('|').map(s => s.trim()).join(' | ')}\n`;
+    }
+
+    md += '\n**Triton Models**\n\n';
+    md += '| General | | |\n|---|---|---|\n';
+    md += '| hlir/v2/20250429-1 | embedder/v3/20250522-1 | qwin/v1/20250605-1 |\n';
+    md += '| qwen3/v1/20250806-1 | bge-m3-embedder/v4/20251002-1 | censor/v3/20251230-1 |\n\n';
+    md += '| RU | | |\n|---|---|---|\n';
+    md += '| asr/ru/v13-l4/20260122-1 | tts/ru/v6-l4/20251107-1 | normalization/ru/v1/20250605-1 |\n\n';
+    md += '| UZ | | |\n|---|---|---|\n';
+    md += '| asr/uz/v14-l4/20251125-1 | tts/uz/v7-l4/20251030-1 | normalization/uz/v1/20250605-1 |\n';
+    md += '| gender-tagger/uz/v1/20250605-1 | | |\n';
 
     navigator.clipboard.writeText(md).then(() => {
         showToast('Copied as Markdown', 'success');
@@ -409,26 +771,7 @@ function copyAsMarkdown() {
     });
 }
 
-async function saveSnapshot() {
-    if (!_deployData) { showToast('Load versions first', 'error'); return; }
-    const cluster = document.getElementById('cluster-select').value;
-    try {
-        const resp = await fetch('/api/deploy/snapshots', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                cluster,
-                components: _deployData.components,
-                commit: _deployData.commit,
-            })
-        });
-        if (!resp.ok) { showToast('Failed to save', 'error'); return; }
-        showToast('Snapshot saved', 'success');
-        window.location.reload();
-    } catch (e) {
-        showToast(e.message, 'error');
-    }
-}
+// saveSnapshot removed — replaced by saveRelease
 
 async function deleteSnapshot(id) {
     if (!confirm('Delete this snapshot?')) return;

@@ -35,12 +35,30 @@ def _graphql(query: str, variables: dict, api_key: str) -> dict:
             "Authorization": api_key,
         },
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:
         return json.loads(resp.read())
 
 
 def fetch_issue(identifier: str, api_key: str) -> dict | None:
-    """Fetch a single issue by identifier (e.g. 'ABC-123') via search."""
+    """Fetch a single issue by identifier (e.g. 'ABC-123')."""
+    query = """
+    query($id: String!) {
+        issue(id: $id) { %s }
+    }
+    """ % ISSUE_FIELDS
+    try:
+        data = _graphql(query, {"id": identifier}, api_key)
+        node = data.get("data", {}).get("issue")
+        if node:
+            return _normalize(node)
+    except Exception:
+        pass
+    # Fallback to search if direct lookup fails
+    return _fetch_issue_by_search(identifier, api_key)
+
+
+def _fetch_issue_by_search(identifier: str, api_key: str) -> dict | None:
+    """Fallback: fetch issue via search."""
     query = """
     query($term: String!) {
         searchIssues(term: $term, first: 1) {
@@ -48,31 +66,63 @@ def fetch_issue(identifier: str, api_key: str) -> dict | None:
         }
     }
     """ % ISSUE_FIELDS
-    variables = {"term": identifier}
     try:
-        data = _graphql(query, variables, api_key)
+        data = _graphql(query, {"term": identifier}, api_key)
         nodes = data.get("data", {}).get("searchIssues", {}).get("nodes", [])
-        # Verify exact match (search may return fuzzy results)
         for n in nodes:
             if n.get("identifier", "").upper() == identifier.upper():
                 return _normalize(n)
-        return None
     except Exception:
-        return None
+        pass
+    return None
 
 
 def fetch_issues(identifiers: list[str], api_key: str) -> dict[str, dict]:
     """Batch-fetch multiple issues. Returns {identifier: issue_data}."""
     if not identifiers:
         return {}
-    # Linear searchIssues doesn't support batch, so search per-issue
-    # Use a single search with all identifiers joined by OR-like term
-    # For reliability, fetch one by one (Linear API is fast)
-    result: dict[str, dict] = {}
-    for key in identifiers:
+
+    # Try batch via filter first (much faster for many keys)
+    result = _fetch_issues_batch(identifiers, api_key)
+
+    # Fallback: fetch missing ones individually
+    missing = [k for k in identifiers if k not in result]
+    for key in missing:
         issue = fetch_issue(key, api_key)
         if issue:
             result[issue["identifier"]] = issue
+
+    return result
+
+
+def _fetch_issues_batch(identifiers: list[str], api_key: str) -> dict[str, dict]:
+    """Fetch issues in batches using filter query."""
+    result: dict[str, dict] = {}
+    # Process in chunks of 50
+    for i in range(0, len(identifiers), 50):
+        chunk = identifiers[i:i + 50]
+        # Use issueSearch with filter by identifier
+        query = """
+        query($filter: IssueFilter, $first: Int) {
+            issues(filter: $filter, first: $first) {
+                nodes { %s }
+            }
+        }
+        """ % ISSUE_FIELDS
+        # Build OR filter for identifiers
+        id_filters = [{"identifier": {"eq": k}} for k in chunk]
+        variables = {
+            "filter": {"or": id_filters},
+            "first": len(chunk),
+        }
+        try:
+            data = _graphql(query, variables, api_key)
+            nodes = data.get("data", {}).get("issues", {}).get("nodes", [])
+            for n in nodes:
+                normalized = _normalize(n)
+                result[normalized["identifier"]] = normalized
+        except Exception:
+            pass
     return result
 
 
