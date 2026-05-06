@@ -124,7 +124,7 @@ Automated release workflows create branches that don't follow the standard `<iss
 
 ```
 release-<version>
-platform-bundle-<version>
+delivery-<version>
 ```
 
 - `version` is a SemVer number (e.g., `1.2.0`, `22.0.0`) — no `v` prefix
@@ -134,8 +134,8 @@ platform-bundle-<version>
 
 - ✅ `release-1.2.0`
 - ✅ `release-10.0.1`
-- ✅ `platform-bundle-22.0.0`
-- ✅ `platform-bundle-2.5.1`
+- ✅ `delivery-25.0.0`
+- ✅ `delivery-1.0.0`
 - ❌ `release-v1.2.0` — no `v` prefix
 - ❌ `release` — missing version
 
@@ -168,7 +168,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/). Motivati
 
 - **Type**: Required. One of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 - **Scope**: Optional. Component or module name
-- **Subject**: Required. Lowercase, imperative mood, no period. Must name the specific thing that changed
+- **Subject**: Required. Lowercase, imperative mood, no period. Must describe WHAT changed (the technical modification), not WHY (the motivation). Bad: "close coverage gaps". Good: "add null-check to auth handler"
 - **Header length**: Total line (`type(scope): subject`) must not exceed 72 characters
 - **Issue ID**: Do NOT include in commit messages (branch handles linking)
 - **PR References**: Do NOT reference PRs, review comments, or feedback in commit messages. Commits must be self-contained and understandable without viewing any PR
@@ -240,6 +240,26 @@ docs(asr): update based on PR feedback
 fix: changes requested in code review
 wip
 btw
+```
+
+❌ WHY-focused commits (state motivation instead of technical change):
+
+```
+fix: close coverage gaps
+fix: address review feedback
+refactor: ensure compliance with rules
+feat: improve error handling
+fix: cover edge cases in validation
+```
+
+✅ The WHAT-focused equivalents:
+
+```
+fix(auth): add null-check and token expiry validation
+fix(parser): replace bcrypt with argon2 in hashPassword
+refactor(lint): change nesting depth threshold from 5 to 2
+feat(api): add retry with exponential backoff to fetchUser
+fix(validator): handle null and empty-string inputs
 ```
 
 ⚠️ This rule is enforced by [automated PR validation](https://github.com/acclaim-ai/contributing-action) and pre-commit hooks. Invalid commits block PR merge.
@@ -345,11 +365,12 @@ Release PRs are created by [release-action](https://github.com/acclaim-ai/releas
 
 ```
 Release [<name>] <version>
+Delivery [<name>] <version>
 ```
 
 **Rules:**
 
-- `Release` keyword is required, capitalized
+- `Release` or `Delivery` keyword is required, capitalized
 - `name` is the service or library name (optional for single-package repos, required for monorepos)
 - `version` is a SemVer number — no `v` prefix
 
@@ -358,8 +379,12 @@ Release [<name>] <version>
 - ✅ `Release 1.2.0`
 - ✅ `Release Dialog Manager 1.2.0`
 - ✅ `Release Platform Bundle 22.0.0`
+- ✅ `Delivery 25.0.0`
+- ✅ `Delivery Dialog Manager 1.0.0`
 - ❌ `Release v1.2.0` — no `v` prefix
 - ❌ `release 1.2.0` — must be capitalized
+- ❌ `delivery 25.0.0` — must be capitalized
+- ❌ `Delivery v1.2.0` — no `v` prefix
 
 ⚠️ Release PRs are created automatically by release workflows. Do not create them manually.
 
