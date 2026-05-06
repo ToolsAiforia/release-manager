@@ -78,6 +78,7 @@ class DeploySnapshot(BaseModel):
     id: str
     cluster: str
     name: str = ""
+    branch: str | None = None
     created_at: datetime = Field(default_factory=datetime.now)
     components: list[DeployComponent] = Field(default_factory=list)
     commit_sha: str | None = None

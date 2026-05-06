@@ -29,12 +29,13 @@ def fetch_deployed_versions(
     cluster_path: str,
     token: str,
     until: str | None = None,
+    branch: str | None = None,
 ) -> dict:
     """Fetch component → tag mapping from a cluster directory.
 
     Args:
-        until: ISO date string (e.g. '2026-03-15'). If set, fetches state
-               as of the latest commit on or before that date.
+        until: ISO date string. If set, fetches state as of latest commit on/before that date.
+        branch: Git branch name (default 'main').
 
     Returns {"components": [{name, tag, file}], "commit": {sha, ...}}.
     """
@@ -42,8 +43,9 @@ def fetch_deployed_versions(
 
     # 1. Find the commit (latest, or latest before `until`)
     commits_url = f"{base}/commits?path={cluster_path}&per_page=1"
+    if branch:
+        commits_url += f"&sha={branch}"
     if until:
-        # GitHub API expects ISO 8601: append end-of-day time
         commits_url += f"&until={until}T23:59:59Z"
 
     commits = _github_get(commits_url, token)
@@ -118,6 +120,42 @@ def _scan_extra_components(
                 "file": extra["file"],
             })
     return extras
+
+
+def list_clusters(owner: str, repo: str, token: str) -> list[str]:
+    """List cluster names from the clusters/ directory."""
+    try:
+        contents = _github_get(
+            f"{GITHUB_API}/repos/{owner}/{repo}/contents/clusters", token
+        )
+        return sorted(c["name"] for c in contents if c["type"] == "dir")
+    except Exception:
+        return []
+
+
+def list_branches(owner: str, repo: str, token: str) -> list[str]:
+    """List all branches of a GitHub repo, main first."""
+    branches: list[str] = []
+    page = 1
+    while page <= 3:
+        try:
+            data = _github_get(
+                f"{GITHUB_API}/repos/{owner}/{repo}/branches?per_page=100&page={page}",
+                token,
+            )
+        except Exception:
+            break
+        if not data:
+            break
+        branches.extend(b["name"] for b in data)
+        if len(data) < 100:
+            break
+        page += 1
+
+    if "main" in branches:
+        branches.remove("main")
+        branches.insert(0, "main")
+    return branches
 
 
 def fetch_infra_info(token: str, until: str | None = None) -> dict:

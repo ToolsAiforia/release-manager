@@ -742,6 +742,7 @@ async def api_deploy_versions(request: Request):
 
     cluster = request.query_params.get("cluster", "aiphoria-qa")
     until = request.query_params.get("until")  # ISO date: 2026-03-15
+    branch = request.query_params.get("branch") or "main"
     try:
         result = deploy.fetch_deployed_versions(
             owner="acclaim-ai",
@@ -749,6 +750,7 @@ async def api_deploy_versions(request: Request):
             cluster_path=f"clusters/{cluster}",
             token=config.git_token,
             until=until,
+            branch=branch,
         )
         # Add components from Repositories that are missing in deploy
         result["components"] = _supplement_from_repos(
@@ -762,6 +764,28 @@ async def api_deploy_versions(request: Request):
         return result
     except Exception as e:
         return Response(f"Failed to fetch: {e}", status_code=500)
+
+
+@router.get("/api/deploy/clusters")
+async def api_deploy_clusters(request: Request):
+    config: AppConfig = request.app.state.app_config
+    if not config.git_token:
+        return Response("GitHub token not configured", status_code=400)
+    try:
+        return {"clusters": deploy.list_clusters("acclaim-ai", "platform-deploy", config.git_token)}
+    except Exception as e:
+        return Response(f"Failed to fetch clusters: {e}", status_code=500)
+
+
+@router.get("/api/deploy/branches")
+async def api_deploy_branches(request: Request):
+    config: AppConfig = request.app.state.app_config
+    if not config.git_token:
+        return Response("GitHub token not configured", status_code=400)
+    try:
+        return {"branches": deploy.list_branches("acclaim-ai", "platform-deploy", config.git_token)}
+    except Exception as e:
+        return Response(f"Failed to fetch branches: {e}", status_code=500)
 
 
 @router.get("/api/deploy/infra")
@@ -802,6 +826,7 @@ async def api_save_deploy_snapshot(request: Request):
         id=uuid4().hex[:12],
         cluster=body.get("cluster", "aiphoria-qa"),
         name=body.get("name", ""),
+        branch=body.get("branch"),
         created_at=created_at,
         components=components,
         commit_sha=commit.get("sha") if commit else None,

@@ -34,7 +34,7 @@
             <select id="cluster-select"
                     class="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700
                            bg-white dark:bg-[#1a1d26] text-gray-700 dark:text-gray-300
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500/40 w-36">
                 <option value="aiphoria-qa" selected>aiphoria-qa</option>
             </select>
 
@@ -50,6 +50,15 @@
                               focus:outline-none focus:ring-2 focus:ring-indigo-500/40 w-16 text-center"
                        title="Release number">
             </div>
+
+            <!-- Branch selector -->
+            <select id="deploy-branch"
+                    class="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700
+                           bg-white dark:bg-[#1a1d26] text-gray-700 dark:text-gray-300
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500/40 w-28"
+                    title="Branch">
+                <option value="main">main</option>
+            </select>
 
             <!-- Date picker -->
             <input type="date" id="deploy-date"
@@ -189,6 +198,14 @@
                         <span class="text-xs font-semibold text-gray-900 dark:text-gray-100">
                             {{ snap.cluster }}
                         </span>
+                        {% if snap.branch %}
+                        <span class="inline-flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 3v12a3 3 0 003 3h6a3 3 0 003-3V9a3 3 0 00-3-3h-3"/>
+                            </svg>
+                            {{ snap.branch }}
+                        </span>
+                        {% endif %}
                         <span class="text-xs text-gray-500 dark:text-gray-400">
                             {{ snap.created_at.strftime('%Y-%m-%d %H:%M') }}
                         </span>
@@ -440,6 +457,7 @@ async function saveRelease() {
             body: JSON.stringify({
                 cluster,
                 name: snapshotName,
+                branch: (document.getElementById('deploy-branch').value || 'main').trim(),
                 components: selectedComponents,
                 commit: _deployData.commit,
                 infra,
@@ -507,6 +525,7 @@ function renderSnapshotsList(snapshots) {
                     </svg>
                     ${snap.name ? `<span class="inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">${escapeHtml(snap.name)}</span>` : ''}
                     <span class="text-xs font-semibold text-gray-900 dark:text-gray-100">${escapeHtml(snap.cluster)}</span>
+                    ${snap.branch ? `<span class="inline-flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 3v12a3 3 0 003 3h6a3 3 0 003-3V9a3 3 0 00-3-3h-3"/></svg>${escapeHtml(snap.branch)}</span>` : ''}
                     <span class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(date)}</span>
                     ${snap.commit_sha ? `<span class="text-xs font-mono text-indigo-500">${escapeHtml(snap.commit_sha)}</span>` : ''}
                     <span class="text-[10px] text-gray-400">${snap.components.length} components</span>
@@ -565,6 +584,7 @@ function renderSnapshotInfra(infra) {
 async function loadVersions() {
     const cluster = document.getElementById('cluster-select').value;
     const dateVal = document.getElementById('deploy-date').value;
+    const branchVal = (document.getElementById('deploy-branch').value || 'main').trim();
     const table = document.getElementById('deploy-table');
 
     table.innerHTML = `
@@ -576,7 +596,7 @@ async function loadVersions() {
             <span class="ml-2 text-sm text-gray-500">Loading${dateVal ? ' for ' + dateVal : ''}...</span>
         </div>`;
 
-    let url = `/api/deploy/versions?cluster=${encodeURIComponent(cluster)}`;
+    let url = `/api/deploy/versions?cluster=${encodeURIComponent(cluster)}&branch=${encodeURIComponent(branchVal)}`;
     if (dateVal) url += `&until=${encodeURIComponent(dateVal)}`;
 
     try {
@@ -789,5 +809,35 @@ async function deleteSnapshot(id) {
 
 // Set date to today by default
 document.getElementById('deploy-date').value = new Date().toISOString().slice(0, 10);
+
+// Load branches list for dropdown
+(async () => {
+    const sel = document.getElementById('deploy-branch');
+    if (!sel) return;
+    try {
+        const resp = await fetch('/api/deploy/branches');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const branches = data.branches || [];
+        if (branches.length === 0) return;
+        sel.innerHTML = branches.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+    } catch (e) { /* keep default */ }
+})();
+
+// Load clusters list for dropdown
+(async () => {
+    const sel = document.getElementById('cluster-select');
+    if (!sel) return;
+    try {
+        const resp = await fetch('/api/deploy/clusters');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const clusters = data.clusters || [];
+        if (clusters.length === 0) return;
+        sel.innerHTML = clusters.map(c =>
+            `<option value="${escapeHtml(c)}"${c === 'aiphoria-qa' ? ' selected' : ''}>${escapeHtml(c)}</option>`
+        ).join('');
+    } catch (e) { /* keep default */ }
+})();
 </script>
 {% endblock %}

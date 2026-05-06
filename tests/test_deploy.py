@@ -68,6 +68,35 @@ class TestFetchDeployedVersions:
         assert result["commit"] is None
 
     @patch("release_manager.services.deploy._github_get")
+    def test_passes_branch_to_commits(self, mock_get):
+        calls = []
+
+        def tracking(url, token):
+            calls.append(url)
+            return self._mock_github_api(url, token)
+
+        mock_get.side_effect = tracking
+        fetch_deployed_versions(
+            "owner", "repo", "clusters/qa", "token", branch="dev"
+        )
+        commits_calls = [u for u in calls if "/commits?" in u]
+        assert any("sha=dev" in u for u in commits_calls)
+
+    @patch("release_manager.services.deploy._github_get")
+    def test_without_branch_no_sha_param(self, mock_get):
+        calls = []
+
+        def tracking(url, token):
+            calls.append(url)
+            return self._mock_github_api(url, token)
+
+        mock_get.side_effect = tracking
+        fetch_deployed_versions("owner", "repo", "clusters/qa", "token")
+        # First commits call (for cluster dir discovery) should not have sha=
+        first_commits = next(u for u in calls if "/commits?" in u)
+        assert "sha=" not in first_commits
+
+    @patch("release_manager.services.deploy._github_get")
     def test_components_have_author_and_date(self, mock_get):
         mock_get.side_effect = self._mock_github_api
         result = fetch_deployed_versions(
